@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -120,7 +119,8 @@ func main() {
 			n, err := stdoutPipe.Read(buf)
 			if n > 0 {
 				os.Stdout.Write(buf[:n])
-				stdoutConn.Write(append(buf[:n], '\n'))
+				// Send raw bytes without adding newline (binary safe)
+				stdoutConn.Write(buf[:n])
 			}
 			if err != nil {
 				return
@@ -135,12 +135,13 @@ func main() {
 
 	go func() {
 		defer func() { done <- struct{}{} }()
-		scanner := bufio.NewReader(os.Stdin)
+		// Read raw bytes from stdin, not line by line (interactive mode)
+		buf := make([]byte, 1)
 		for {
-			line, err := scanner.ReadBytes('\n')
-			if len(line) > 0 {
-				stdinPipe.Write(line)
-				stdinConn.Write(line)
+			n, err := os.Stdin.Read(buf)
+			if n > 0 {
+				stdinPipe.Write(buf[:n])
+				stdinConn.Write(buf[:n])
 			}
 			if err != nil {
 				return

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,10 +56,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 func (s *Server) setupRouter() {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("pong"))
-	})
-
 	mux.HandleFunc("/websocket", s.hub.HandleWebSocket)
 
 	v1 := api.NewV1(s.store, s.pluginMgr, s.receiver, s.startTime)
@@ -95,7 +92,19 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 	if full == "" {
 		full = "index.html"
 	}
-	http.ServeFile(w, r, s.config.PublicDir+"/"+full)
+	
+	// Prevent path traversal by cleaning the path and verifying it stays within PublicDir
+	cleanPath := filepath.Clean(full)
+	fullPath := filepath.Join(s.config.PublicDir, cleanPath)
+	
+	// Ensure the resolved path is still within PublicDir
+	if !strings.HasPrefix(fullPath, filepath.Clean(s.config.PublicDir)+string(filepath.Separator)) &&
+		fullPath != filepath.Clean(s.config.PublicDir) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	
+	http.ServeFile(w, r, fullPath)
 }
 
 func (s *Server) RegisterPlugin(p plugin.Plugin) {
