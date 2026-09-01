@@ -77,8 +77,8 @@ class MyEncoder(json.JSONEncoder):
 
 class Egg():
     def __init__(self, target):
-        self.__backend_addr = '171.120.24.246'
-        self.__backend_port = 8023
+        self.__backend_addr = os.environ.get('AOIAWD_HOST', '127.0.0.1')
+        self.__backend_port = int(os.environ.get('AOIAWD_PORT', '8023'))
 
         self._start_response = None
 
