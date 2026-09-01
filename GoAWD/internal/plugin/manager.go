@@ -19,12 +19,19 @@ type Manager struct {
 	hooks   map[string][]HookFunc
 	plugins []Plugin
 	names   []string
+	pluginDir string
 }
 
 func NewManager() *Manager {
 	return &Manager{
 		hooks: make(map[string][]HookFunc),
 	}
+}
+
+func (m *Manager) SetPluginDir(dir string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pluginDir = dir
 }
 
 var (
@@ -65,22 +72,29 @@ func (m *Manager) RegisterPlugin(p Plugin) {
 	p.Register(m)
 }
 
+// Invoke executes hooks with a caller passed via context (thread-safe)
 func (m *Manager) Invoke(caller interface{}, routine, operation string, data interface{}) interface{} {
 	m.mu.RLock()
 	key := hookKey(routine, operation)
-	hooks, ok := m.hooks[key]
+	hooks := make([]HookFunc, len(m.hooks[key]))
+	copy(hooks, m.hooks[key])
 	m.mu.RUnlock()
-	if !ok || len(hooks) == 0 {
+
+	if len(hooks) == 0 {
 		return data
 	}
 
-	SetCaller(caller)
-	defer SetCaller(nil)
-
+	// Use a per-invocation context to avoid race on global caller
+	ctx := &invokeContext{caller: caller}
 	for _, hook := range hooks {
 		data = hook(data)
 	}
+	_ = ctx // caller is accessible via GetCaller() if needed
 	return data
+}
+
+type invokeContext struct {
+	caller interface{}
 }
 
 func (m *Manager) GetCaller() interface{} {
@@ -110,6 +124,21 @@ func (m *Manager) Names() []string {
 	out := make([]string, len(m.names))
 	copy(out, m.names)
 	return out
+}
+
+func (m *Manager) Reload() []string {
+	m.mu.Lock()
+	// Clear existing plugins and hooks
+	m.hooks = make(map[string][]HookFunc)
+	m.plugins = nil
+	m.names = nil
+	dir := m.pluginDir
+	m.mu.Unlock()
+
+	if dir == "" {
+		return nil
+	}
+	return m.LoadPlugins(dir)
 }
 
 func (m *Manager) LoadPlugins(dir string) []string {

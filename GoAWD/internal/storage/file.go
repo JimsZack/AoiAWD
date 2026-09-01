@@ -88,9 +88,9 @@ func (f *File) flush() {
 	f.flushMu.Lock()
 	defer f.flushMu.Unlock()
 
-	f.mu.RLock()
+	f.mu.Lock()
 	if !f.dirty {
-		f.mu.RUnlock()
+		f.mu.Unlock()
 		return
 	}
 	snapshot := make(map[string][]fileEntry, len(f.data))
@@ -100,7 +100,7 @@ func (f *File) flush() {
 		snapshot[coll] = cp
 	}
 	f.dirty = false
-	f.mu.RUnlock()
+	f.mu.Unlock()
 
 	dir := filepath.Dir(f.path)
 	if dir != "." && dir != "" {

@@ -460,7 +460,8 @@ func (v *V1) ListPlugin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (v *V1) ReloadPlugin(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, okResp(nil))
+	loaded := v.pluginMgr.Reload()
+	writeJSON(w, okResp(loaded))
 }
 
 func (v *V1) Ping(w http.ResponseWriter, r *http.Request) {

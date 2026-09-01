@@ -64,15 +64,28 @@ func (s *Server) setupRouter() {
 	mux.HandleFunc("/", s.serveStatic)
 	mux.HandleFunc("/index.html", s.serveStatic)
 
+	// Rate limiter: 100 requests per minute per IP
+	rateLimiter := api.NewRateLimiter(100, time.Minute)
+
 	s.httpServer = &http.Server{
 		Addr:    s.config.HTTPAddr,
-		Handler: s.withCORS(mux),
+		Handler: rateLimiter.Middleware(s.withCORS(mux)),
 	}
 }
 
 func (s *Server) withCORS(next http.Handler) http.Handler {
+	allowedOrigins := make(map[string]bool)
+	for _, o := range strings.Split(s.config.AllowedOrigins, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			allowedOrigins[o] = true
+		}
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Token")
 		if r.Method == http.MethodOptions {
@@ -133,9 +146,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	go s.hub.Run(ctx)
 
-	log.Printf("GoAWD server started. Token: %s", s.config.Token)
+	log.Printf("GoAWD server started")
 	log.Printf("Endpoints:")
-	log.Printf("  HTTP API:  http://%s/api/v1/info?token=%s", s.config.HTTPAddr, s.config.Token)
+	log.Printf("  HTTP API:  http://%s/api/v1/info", s.config.HTTPAddr)
 	log.Printf("  WebSocket: ws://%s/websocket", s.config.HTTPAddr)
 	log.Printf("  TCP Probe: %s", s.config.TCPAddr)
 

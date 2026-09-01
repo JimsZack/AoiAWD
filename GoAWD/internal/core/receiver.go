@@ -22,6 +22,11 @@ type AlertSetter interface {
 	SetAlert(alertType, pluginName, message, refID string, refPage int)
 }
 
+type pwnProcEntry struct {
+	mu  sync.Mutex
+	proc *types.PwnProcess
+}
+
 type Receiver struct {
 	addr       string
 	storage    storage.Storage
@@ -309,12 +314,14 @@ func (r *Receiver) handleNewPWN(data interface{}, connID uint64) {
 	})
 
 	if _, exists := r.pwnProcess.Load(init.PID); !exists {
-		r.pwnProcess.Store(init.PID, &types.PwnProcess{
-			ID:        	types.GenID(),
-			Time:      types.Now(),
-			Bin:       init.File,
-			Maps:      init.Maps,
-			StreamLog: []types.StreamLog{},
+		r.pwnProcess.Store(init.PID, &pwnProcEntry{
+			proc: &types.PwnProcess{
+				ID:        types.GenID(),
+				Time:      types.Now(),
+				Bin:       init.File,
+				Maps:      init.Maps,
+				StreamLog: []types.StreamLog{},
+			},
 		})
 	}
 }
@@ -330,20 +337,22 @@ func (r *Receiver) processPWNStream(data []byte, connID uint64) {
 	if !ok {
 		return
 	}
-	proc := pval.(*types.PwnProcess)
+	entry := pval.(*pwnProcEntry)
 
 	chunk := string(data)
-	proc.StreamLog = append(proc.StreamLog, types.StreamLog{
+	entry.mu.Lock()
+	entry.proc.StreamLog = append(entry.proc.StreamLog, types.StreamLog{
 		Type:   socket.Type,
 		Buffer: chunk,
 	})
 	if socket.Type == "stdin" {
-		proc.Stdin.Group++
-		proc.Stdin.Byte += len(chunk)
+		entry.proc.Stdin.Group++
+		entry.proc.Stdin.Byte += len(chunk)
 	} else {
-		proc.Stdout.Group++
-		proc.Stdout.Byte += len(chunk)
+		entry.proc.Stdout.Group++
+		entry.proc.Stdout.Byte += len(chunk)
 	}
+	entry.mu.Unlock()
 }
 
 func (r *Receiver) handlePWNClose(connID uint64) {
@@ -358,7 +367,7 @@ func (r *Receiver) handlePWNClose(connID uint64) {
 	if !ok {
 		return
 	}
-	proc := pval.(*types.PwnProcess)
+	entry := pval.(*pwnProcEntry)
 
 	remaining := 0
 	r.pwnSockets.Range(func(_, v interface{}) bool {
@@ -373,9 +382,12 @@ func (r *Receiver) handlePWNClose(connID uint64) {
 
 	r.pwnProcess.Delete(socket.PID)
 
+	entry.mu.Lock()
+	proc := entry.proc
 	for i := range proc.StreamLog {
 		proc.StreamLog[i].Buffer = base64.StdEncoding.EncodeToString([]byte(proc.StreamLog[i].Buffer))
 	}
+	entry.mu.Unlock()
 
 	r.pluginMgr.Invoke(r, "PWN", "processLog", proc)
 

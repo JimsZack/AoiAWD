@@ -8,27 +8,29 @@ import (
 )
 
 type Config struct {
-	HTTPAddr   string
-	TCPAddr    string
-	MongoDBURI string
-	Database   string
-	Token      string
-	PluginDir  string
-	PublicDir  string
-	Storage    string
-	FilePath   string
+	HTTPAddr     string
+	TCPAddr      string
+	MongoDBURI   string
+	Database     string
+	Token        string
+	AllowedOrigins string
+	PluginDir    string
+	PublicDir    string
+	Storage      string
+	FilePath     string
 }
 
 func Default() *Config {
 	return &Config{
-		HTTPAddr:   "0.0.0.0:1337",
-		TCPAddr:    "0.0.0.0:8023",
-		MongoDBURI: "mongodb://127.0.0.1:27017",
-		Database:   "aoiawd",
-		PluginDir:  "./plugins",
-		PublicDir:  "./public",
-		Storage:    "memory",
-		FilePath:   "./goawd.json",
+		HTTPAddr:     "0.0.0.0:1337",
+		TCPAddr:      "0.0.0.0:8023",
+		MongoDBURI:   "mongodb://127.0.0.1:27017",
+		Database:     "aoiawd",
+		AllowedOrigins: "http://localhost:1337,http://127.0.0.1:1337",
+		PluginDir:    "./plugins",
+		PublicDir:    "./public",
+		Storage:      "memory",
+		FilePath:     "./goawd.json",
 	}
 }
 
@@ -64,7 +66,11 @@ func (c *Config) Validate() error {
 func randomToken() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
-		return "default-token"
+		b2 := make([]byte, 8)
+		for i := range b2 {
+			b2[i] = byte(i + 1)
+		}
+		return hex.EncodeToString(b2)
 	}
 	return hex.EncodeToString(b)
 }
