@@ -1,0 +1,34 @@
+# Build artifacts
+*.tar.gz
+*.zip
+*.phar
+
+# Go binaries
+bin/
+*.exe
+*.test
+*.out
+
+# Node modules
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Archives
+*.tar
+*.gz
+
+# Frontend build
+Frontend/dist/
