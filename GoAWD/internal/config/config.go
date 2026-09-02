@@ -25,7 +25,7 @@ func Default() *Config {
 		HTTPAddr:     "0.0.0.0:1337",
 		TCPAddr:      "0.0.0.0:8023",
 		MongoDBURI:   "mongodb://127.0.0.1:27017",
-		Database:     "aoiawd",
+		Database:     "goawd",
 		AllowedOrigins: "http://localhost:1337,http://127.0.0.1:1337",
 		PluginDir:    "./plugins",
 		PublicDir:    "./public",
@@ -42,7 +42,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("tcp address is required")
 	}
 	if c.Database == "" {
-		c.Database = "aoiawd"
+		c.Database = "goawd"
 	}
 	if c.PluginDir == "" {
 		c.PluginDir = "./plugins"

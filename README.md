@@ -37,8 +37,8 @@ make build
 docker compose up -d
 
 # 或使用启动脚本
-chmod +x docker_AoiAWD_Start.sh
-./docker_AoiAWD_Start.sh
+chmod +x docker_goawd_start.sh
+./docker_goawd_start.sh
 ```
 
 ## 命令行参数
@@ -140,7 +140,7 @@ AoiAWD/
 ├── Dockerfile          # Docker 构建文件
 ├── docker-compose.yml  # Docker Compose 配置
 ├── build.sh            # 打包脚本
-└── docker_AoiAWD_Start.sh  # Docker 启动脚本
+└── docker_goawd_start.sh  # Docker 启动脚本
 ```
 
 ## 文档

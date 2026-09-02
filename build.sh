@@ -25,7 +25,7 @@ cp -r GoAWD/bin ${PACKAGE_NAME}/
 cp -r Frontend/dist ${PACKAGE_NAME}/frontend
 cp docker-compose.yml ${PACKAGE_NAME}/
 cp Dockerfile ${PACKAGE_NAME}/
-cp docker_AoiAWD_Start.sh ${PACKAGE_NAME}/
+cp docker_goawd_start.sh ${PACKAGE_NAME}/
 cp README.md ${PACKAGE_NAME}/
 
 tar -czf ${PACKAGE_NAME}.tar.gz ${PACKAGE_NAME}

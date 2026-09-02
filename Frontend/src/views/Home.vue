@@ -25,7 +25,7 @@
 						</el-submenu>
 						<el-menu-item v-if="item.leaf&&item.children.length>0" :index="item.children[0].path"><i :class="item.iconCls"></i>{{item.children[0].name}}</el-menu-item>
 					</template>
-				<el-menu-item><a href="https://github.com/DasSecurity-Labs/AoiAWD" target="_blank"><i class="fa fa-github"></i>AoiAWD@GitHub</a></el-menu-item>
+				<el-menu-item><a href="https://github.com/JimsZack/AoiAWD" target="_blank"><i class="fa fa-github"></i>GoAWD@GitHub</a></el-menu-item>
 				</el-menu>
 				<!--导航菜单-折叠后-->
 				<ul class="el-menu el-menu-vertical-demo collapsed" v-show="collapsed" ref="menuCollapsed">
@@ -68,7 +68,7 @@
 	export default {
 		data() {
 			return {
-				sysName:'AoiAWD',
+				sysName:'GoAWD',
 				collapsed:false,
 				sysUserName: '',
 				sysUserAvatar: '',

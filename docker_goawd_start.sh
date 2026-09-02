@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-IMAGE_NAME="aoiawd-goawd"
-CONTAINER_NAME="aoiawd"
+IMAGE_NAME="goawd"
+CONTAINER_NAME="goawd"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-printf "${GREEN}[+] AoiAWD Docker 启动脚本${NC}\n"
+printf "${GREEN}[+] GoAWD Docker 启动脚本${NC}\n"
 
 # 检查镜像是否存在
 if docker image ls | grep -q "$IMAGE_NAME"; then

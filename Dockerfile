@@ -12,7 +12,7 @@ RUN npm install --ignore-scripts --legacy-peer-deps && \
     npm run build
 
 FROM alpine:latest
-LABEL maintainer="AoiAWD Project"
+LABEL maintainer="GoAWD Project"
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /goawd-server /usr/local/bin/goawd-server

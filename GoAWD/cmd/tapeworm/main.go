@@ -97,12 +97,12 @@ if (!defined('AoiMonitor')) {
 
 func main() {
 	dir := flag.String("d", "", "Web root directory to inject")
-	server := flag.String("s", "127.0.0.1:8023", "AoiAWD server address")
+	server := flag.String("s", "127.0.0.1:8023", "GoAWD server address")
 	mode := flag.String("m", "inject", "Mode: inject, remove, test")
 	flag.Parse()
 
 	if *dir == "" {
-		fmt.Println("TapeWorm - AoiAWD PHP WebMonitor Tool (Go version)")
+		fmt.Println("TapeWorm - GoAWD PHP WebMonitor Tool (Go version)")
 		fmt.Println("Usage: ./tapeworm -d <web_dir> -s <server:port> [-m inject|remove|test]")
 		flag.PrintDefaults()
 		os.Exit(1)
