@@ -25,24 +25,32 @@ const router = new VueRouter({
 router.beforeEach((to, from, next) => {
   if (to.path == "/login") {
     next();
+    return;
   }
-  if (!sessionStorage.getItem('accessToken')) {
-    next("/login")
-  } else {
-    Axios.defaults.headers['Token'] = sessionStorage.getItem("accessToken");
-    next();
+  var token = sessionStorage.getItem('accessToken');
+  if (!token) {
+    next("/login");
+    return;
   }
+  Axios.defaults.headers['Token'] = token;
+  next();
 })
 
 Axios.interceptors.response.use(response => {
   return response
 },
   err => {
-    if (String(err).indexOf(403)) {
-      router.push({
-        path: '/login'
-      })
+    var status = err.response && err.response.status;
+    if (status === 401 || status === 403) {
+      sessionStorage.removeItem('accessToken');
+      delete Axios.defaults.headers['Token'];
+      if (router.currentRoute.path !== '/login') {
+        router.push({
+          path: '/login'
+        })
+      }
     }
+    return Promise.reject(err);
   }
 )
 

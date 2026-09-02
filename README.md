@@ -235,4 +235,4 @@ go tool cover -html=coverage.out
 
 ## 许可证
 
-GNU AGPL-3.0
+MIT License

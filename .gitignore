@@ -8,6 +8,7 @@ bin/
 *.exe
 *.test
 *.out
+*.so
 
 # Node modules
 node_modules/
@@ -32,3 +33,15 @@ Thumbs.db
 
 # Frontend build
 Frontend/dist/
+public/
+
+# Environment files
+.env
+.env.local
+
+# Logs directory
+logs/
+
+# Coverage
+coverage.out
+coverage.html

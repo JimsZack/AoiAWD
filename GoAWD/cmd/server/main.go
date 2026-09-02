@@ -57,7 +57,7 @@ func main() {
 	}
 
 	for _, p := range plugin.Registered() {
-		server.RegisterPlugin(p)
+		server.RegisterBuiltinPlugin(p)
 	}
 	registered := plugin.Registered()
 	names := make([]string, len(registered))

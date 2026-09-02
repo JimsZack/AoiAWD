@@ -7,59 +7,120 @@
 </template>
 
 <script>
-let ws;
-// import { setTimeout } from timers;
-import axios from "axios";
-import bus from "vue-bus";
-
 import config from "./config.js";
+
+const RECONNECT_MIN = 1000;
+const RECONNECT_MAX = 10000;
+
 export default {
   name: "app",
+  data() {
+    return {
+      ws: null,
+      reconnectTimer: null,
+      reconnectDelay: RECONNECT_MIN,
+      destroyed: false
+    };
+  },
   mounted: function() {
     this.showWSInput();
+  },
+  beforeDestroy: function() {
+    this.destroyed = true;
+    this.clearReconnectTimer();
+    this.closeWS();
   },
   components: {},
   methods: {
     showWSInput() {
-      const that = this;
-      ws = new WebSocket(config.ws_addr);
-      console.log(ws);
+      if (this.ws) {
+        return;
+      }
+      var ws;
+      try {
+        ws = new WebSocket(config.ws_addr);
+      } catch (e) {
+        this.scheduleReconnect();
+        return;
+      }
+      this.ws = ws;
       ws.onopen = () => {
-        console.log("Websocket通信建立");
-        this.$store.dispatch("openWs").catch(err => {
-          console.log("修改状态失败");
-        });
+        this.reconnectDelay = RECONNECT_MIN;
+        this.$store.dispatch("openWs");
       };
       ws.onclose = () => {
-        console.log("websocket关闭");
-        this.$store.dispatch("closeWs").catch(err => {
-          console.log("修改状态失败");
-        });
-        this.$message.error("WebSocket连接丢失");
-        setTimeout(this.showWSInput, 5000);
+        this.ws = null;
+        this.$store.dispatch("closeWs");
+        if (this.destroyed) {
+          return;
+        }
+        this.$message.error("WebSocket连接丢失，正在尝试重连");
+        this.scheduleReconnect();
       };
       ws.onmessage = msg => {
-        const { type } = JSON.parse(msg.data);
-        this.$bus.emit("goto-main-latest");
-        switch (type) {
-          case "file":
-            this.$bus.emit("goto-file-latest");
-            break;
-          case "process":
-            this.$bus.emit("goto-process-latest");
-            this.$bus.emit("process-working");
-            break;
-          case "web":
-            this.$bus.emit("goto-web-latest");
-            break;
-          case "alert":
-            this.$bus.emit("goto-alert-latest");
-            break;
-          case "pwn":
-            this.$bus.emit("goto-pwn-latest");
-            break;
-        }
+        this.dispatchMessage(msg);
       };
+    },
+    dispatchMessage(msg) {
+      var data;
+      try {
+        data = JSON.parse(msg.data);
+      } catch (e) {
+        return;
+      }
+      var type = data && data.type;
+      this.$bus.emit("goto-main-latest");
+      switch (type) {
+        case "file":
+          this.$bus.emit("goto-file-latest");
+          break;
+        case "process":
+          this.$bus.emit("goto-process-latest");
+          this.$bus.emit("process-working");
+          break;
+        case "web":
+          this.$bus.emit("goto-web-latest");
+          break;
+        case "alert":
+          this.$bus.emit("goto-alert-latest");
+          break;
+        case "pwn":
+          this.$bus.emit("goto-pwn-latest");
+          break;
+      }
+    },
+    scheduleReconnect() {
+      if (this.destroyed || this.reconnectTimer) {
+        return;
+      }
+      var delay = this.reconnectDelay;
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_MAX);
+      var _this = this;
+      this.reconnectTimer = setTimeout(() => {
+        _this.reconnectTimer = null;
+        _this.showWSInput();
+      }, delay);
+    },
+    clearReconnectTimer() {
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+    },
+    closeWS() {
+      var ws = this.ws;
+      this.ws = null;
+      if (!ws) {
+        return;
+      }
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      try {
+        ws.close();
+      } catch (e) {
+        // 忽略关闭异常
+      }
     }
   }
 };

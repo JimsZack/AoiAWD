@@ -21,6 +21,7 @@ type Manager struct {
 	hooks     map[string][]HookFunc
 	plugins   []Plugin
 	names     []string
+	builtin   []Plugin
 	pluginDir string
 }
 
@@ -74,6 +75,15 @@ func (m *Manager) RegisterPlugin(p Plugin) {
 	p.Register(m)
 }
 
+// RegisterBuiltinPlugin registers a plugin compiled into the binary. Built-ins
+// survive Reload(), which only re-scans the dynamic plugin directory.
+func (m *Manager) RegisterBuiltinPlugin(p Plugin) {
+	m.mu.Lock()
+	m.builtin = append(m.builtin, p)
+	m.mu.Unlock()
+	m.RegisterPlugin(p)
+}
+
 // Invoke runs the registered hooks for routine/operation in order, passing the
 // caller through to each hook so that plugins can report alerts back to it.
 func (m *Manager) Invoke(caller interface{}, routine, operation string, data interface{}) interface{} {
@@ -97,14 +107,21 @@ func (m *Manager) Names() []string {
 	return out
 }
 
+// Reload re-scans the plugin directory. Only dynamically loaded plugins are
+// dropped; plugins compiled into the binary are re-registered afterwards.
 func (m *Manager) Reload() []string {
 	m.mu.Lock()
-	// Clear existing plugins and hooks
 	m.hooks = make(map[string][]HookFunc)
 	m.plugins = nil
 	m.names = nil
+	builtin := make([]Plugin, len(m.builtin))
+	copy(builtin, m.builtin)
 	dir := m.pluginDir
 	m.mu.Unlock()
+
+	for _, p := range builtin {
+		m.RegisterPlugin(p)
+	}
 
 	if dir == "" {
 		return nil

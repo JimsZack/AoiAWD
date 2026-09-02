@@ -130,8 +130,8 @@ make build-linux-arm64
 # 打包二进制版本
 ./build.sh
 
-# 打包源码
-./package_source.sh
+# 打包源码（使用 tar 命令）
+tar -czf GoAWD-src.tar.gz --exclude='.git' --exclude='node_modules' --exclude='*.tar.gz' .
 ```
 
 ## 与原版 AoiAWD 的区别

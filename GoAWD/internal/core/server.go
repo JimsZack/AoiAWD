@@ -121,8 +121,10 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, fullPath)
 }
 
-func (s *Server) RegisterPlugin(p plugin.Plugin) {
-	s.pluginMgr.RegisterPlugin(p)
+// RegisterBuiltinPlugin registers a plugin compiled into the binary; it is
+// preserved across plugin reloads.
+func (s *Server) RegisterBuiltinPlugin(p plugin.Plugin) {
+	s.pluginMgr.RegisterBuiltinPlugin(p)
 }
 
 func (s *Server) LoadPlugins(dir string) []string {

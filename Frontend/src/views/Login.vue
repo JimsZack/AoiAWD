@@ -27,7 +27,10 @@
             v-model="ruleForm2.accessToken" 
             auto-complete="off" 
             placeholder="请输入 Access Token"
-            prefix-icon="fa fa-key">
+            prefix-icon="fa fa-key"
+            ref="tokenInput"
+            :disabled="logining"
+            @keyup.enter.native="handleLogin">
           </el-input>
         </el-form-item>
         <el-form-item style="width:100%;">
@@ -66,8 +69,23 @@
         checked: true
       };
     },
+    mounted() {
+      this.focusTokenInput();
+    },
     methods: {
+      focusTokenInput() {
+        this.$nextTick(() => {
+          var input = this.$refs.tokenInput && this.$refs.tokenInput.$el;
+          input = input && input.querySelector('input');
+          if (input) {
+            input.focus();
+          }
+        });
+      },
       handleLogin() {
+        if (this.logining) {
+          return;
+        }
         this.$refs.ruleForm2.validate((valid) => {
           if (valid) {
             this.logining = true;
@@ -80,12 +98,23 @@
                   path:'/main'
                 })
               }).catch(err => {
-                Axios.defaults.headers['Token'] = "";
+                delete Axios.defaults.headers['Token'];
                 this.logining = false;
-                this.$message.error('登录失败，请检查 Token 是否正确');
+                this.$message.error(this.errorMessage(err));
+                this.focusTokenInput();
               });
           }
         });
+      },
+      errorMessage(err) {
+        var status = err && err.response && err.response.status;
+        if (status === 401 || status === 403) {
+          return 'Token 无效或已过期，请重新输入';
+        }
+        if (!err.response) {
+          return '无法连接后端服务，请检查网络与服务状态';
+        }
+        return '登录失败，请稍后重试（HTTP ' + status + '）';
       }
     }
   }

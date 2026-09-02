@@ -1,40 +1,45 @@
 <template>
 	<el-row class="container">
 		<el-col :span="24" class="header">
-			<el-col :span="10" class="logo" :class="collapsed?'logo-collapse-width':'logo-width'">
-				<div class="logo-wrapper" v-if="!collapsed">
-					<svg viewBox="0 0 120 120" class="logo-svg">
-						<defs>
-							<linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-								<stop offset="0%" style="stop-color:#fff;stop-opacity:1" />
-								<stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
-							</linearGradient>
-						</defs>
-						<circle cx="60" cy="60" r="40" fill="none" stroke="url(#headerGrad)" stroke-width="3" />
-						<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
-					</svg>
-					<span class="logo-text">{{sysName}}</span>
+			<div class="header-inner">
+				<div class="logo" :class="collapsed?'logo-collapse-width':'logo-width'">
+					<div class="logo-wrapper" v-if="!collapsed">
+						<svg viewBox="0 0 120 120" class="logo-svg">
+							<defs>
+								<linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+									<stop offset="0%" style="stop-color:#fff;stop-opacity:1" />
+									<stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+								</linearGradient>
+							</defs>
+							<circle cx="60" cy="60" r="40" fill="none" stroke="url(#headerGrad)" stroke-width="3" />
+							<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
+						</svg>
+						<span class="logo-text">{{sysName}}</span>
+					</div>
+					<div class="logo-wrapper collapsed-logo" v-else>
+						<svg viewBox="0 0 120 120" class="logo-svg">
+							<circle cx="60" cy="60" r="40" fill="none" stroke="white" stroke-width="3" />
+							<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
+						</svg>
+					</div>
 				</div>
-				<div class="logo-wrapper collapsed-logo" v-else>
-					<svg viewBox="0 0 120 120" class="logo-svg">
-						<circle cx="60" cy="60" r="40" fill="none" stroke="white" stroke-width="3" />
-						<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
-					</svg>
-				</div>
-			</el-col>
-			<el-col :span="6">
 				<div class="tools" @click.prevent="collapse">
 					<i class="fa fa-align-justify"></i>
 				</div>
-			</el-col>
-			<el-col :span="8" class="userinfo">
-				<div class="user-info-inner">
-					<span class="version-badge">v2.0</span>
-					<a href="https://github.com/JimsZack/AoiAWD" target="_blank" class="github-link">
-						<i class="fa fa-github"></i>
-					</a>
+				<div class="header-spacer"></div>
+				<div class="userinfo">
+					<div class="user-info-inner">
+						<span class="version-badge">v2.0</span>
+						<a href="https://github.com/JimsZack/AoiAWD" target="_blank" class="github-link">
+							<i class="fa fa-github"></i>
+						</a>
+						<div class="logout-entry" @click="logout">
+							<i class="fa fa-sign-out"></i>
+							<span>退出登录</span>
+						</div>
+					</div>
 				</div>
-			</el-col>
+			</div>
 		</el-col>
 		<el-col :span="24" class="main">
 			<aside :class="collapsed?'menu-collapsed':'menu-expanded'">
@@ -50,11 +55,11 @@
 					</template>
 				</el-menu>
 				<!--导航菜单-折叠后-->
-				<ul class="el-menu el-menu-vertical-demo collapsed" v-show="collapsed" ref="menuCollapsed">
+				<ul class="el-menu el-menu-vertical-demo collapsed" v-show="collapsed">
 					<li v-for="(item,index) in $router.options.routes" v-if="!item.hidden" class="el-submenu item">
 						<template v-if="!item.leaf">
 							<div class="el-submenu__title" style="padding-left: 20px;" @mouseover="showMenu(index,true)" @mouseout="showMenu(index,false)"><i :class="item.iconCls"></i></div>
-							<ul class="el-menu submenu" :class="'submenu-hook-'+index" @mouseover="showMenu(index,true)" @mouseout="showMenu(index,false)"> 
+							<ul class="el-menu submenu" v-show="hoverIndex===index" @mouseover="showMenu(index,true)" @mouseout="showMenu(index,false)">
 								<li v-for="child in item.children" v-if="!child.hidden" :key="child.path" class="el-menu-item" style="padding-left: 40px;" :class="$route.path==child.path?'is-active':''" @click="$router.push(child.path)">{{child.name}}</li>
 							</ul>
 						</template>
@@ -87,29 +92,17 @@
 </template>
 
 <script>
+	import Axios from 'axios';
+
 	export default {
 		data() {
 			return {
 				sysName:'GoAWD',
 				collapsed:false,
-				sysUserName: '',
-				sysUserAvatar: '',
-				form: {
-					name: '',
-					region: '',
-					date1: '',
-					date2: '',
-					delivery: false,
-					type: [],
-					resource: '',
-					desc: ''
-				}
+				hoverIndex:-1
 			}
 		},
 		methods: {
-			onSubmit() {
-				console.log('submit!');
-			},
 			handleopen() {
 				//console.log('handleopen');
 			},
@@ -124,25 +117,28 @@
 				this.$confirm('确认退出吗?', '提示', {
 					//type: 'warning'
 				}).then(() => {
-					sessionStorage.removeItem('user');
-					_this.$router.push('/login');
+					_this.doLogout();
 				}).catch(() => {
 				});
+			},
+			//清理登录态并跳转登录页
+			doLogout: function () {
+				sessionStorage.removeItem('user');
+				sessionStorage.removeItem('accessToken');
+				delete Axios.defaults.headers['Token'];
+				this.$router.push('/login');
 			},
 			//折叠导航栏
 			collapse:function(){
 				this.collapsed=!this.collapsed;
+				this.hoverIndex=-1;
 			},
 			showMenu(i,status){
-				this.$refs.menuCollapsed.getElementsByClassName('submenu-hook-'+i)[0].style.display=status?'block':'none';
-			}
-		},
-		mounted() {
-			var user = sessionStorage.getItem('user');
-			if (user) {
-				user = JSON.parse(user);
-				this.sysUserName = user.name || '';
-				this.sysUserAvatar = user.avatar || '';
+				if (status) {
+					this.hoverIndex = i;
+				} else if (this.hoverIndex === i) {
+					this.hoverIndex = -1;
+				}
 			}
 		}
 	}
@@ -161,10 +157,20 @@
 			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
 			color:#fff;
 			
+			.header-inner {
+				display: flex;
+				align-items: center;
+				height: 60px;
+			}
+			
+			.header-spacer {
+				flex: 1 1 auto;
+				min-width: 0;
+			}
+			
 			.userinfo {
-				text-align: right;
+				flex: 0 0 auto;
 				padding-right: 20px;
-				float: right;
 				
 				.user-info-inner {
 					display: flex;
@@ -191,9 +197,33 @@
 						transform: scale(1.1);
 					}
 				}
+				
+				.logout-entry {
+					display: flex;
+					align-items: center;
+					margin-left: 20px;
+					padding: 0 12px;
+					height: 32px;
+					line-height: 32px;
+					font-size: 14px;
+					border-radius: 16px;
+					background: rgba(255, 255, 255, 0.12);
+					cursor: pointer;
+					transition: all 0.3s;
+					
+					i {
+						margin-right: 6px;
+					}
+					
+					&:hover {
+						background: rgba(255, 255, 255, 0.24);
+						color: #fff;
+					}
+				}
 			}
 			
 			.logo {
+				flex: 0 0 auto;
 				height:60px;
 				font-size: 22px;
 				padding-left:20px;
@@ -232,8 +262,9 @@
 			}
 			
 			.tools{
+				flex: 0 0 auto;
 				padding: 0px 23px;
-				width:14px;
+				width:60px;
 				height: 60px;
 				line-height: 60px;
 				cursor: pointer;
@@ -273,7 +304,6 @@
 						left:60px;
 						z-index:99999;
 						height:auto;
-						display:none;
 					}
 				}
 			}

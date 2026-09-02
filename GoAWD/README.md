@@ -158,7 +158,7 @@ docker-compose up -d
 
 ## 许可证
 
-GNU Affero General Public License v3.0
+MIT License
 
 ## 致谢
 
