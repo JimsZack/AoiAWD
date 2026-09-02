@@ -26,6 +26,7 @@ func Default() *Config {
 		TCPAddr:      "0.0.0.0:8023",
 		MongoDBURI:   "mongodb://127.0.0.1:27017",
 		Database:     "goawd",
+		Token:        "goawd2026",
 		AllowedOrigins: "http://localhost:1337,http://127.0.0.1:1337",
 		PluginDir:    "./plugins",
 		PublicDir:    "./public",

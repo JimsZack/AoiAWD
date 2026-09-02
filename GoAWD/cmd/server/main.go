@@ -29,7 +29,7 @@ func main() {
 	flag.StringVar(&cfg.TCPAddr, "tcp", cfg.TCPAddr, "TCP receiver bind address")
 	flag.StringVar(&cfg.MongoDBURI, "mongo", cfg.MongoDBURI, "MongoDB URI (legacy, ignored)")
 	flag.StringVar(&cfg.Database, "db", cfg.Database, "Database name")
-	flag.StringVar(&cfg.Token, "token", "", "Access token (random if empty)")
+	flag.StringVar(&cfg.Token, "token", cfg.Token, "Access token (default: goawd2026)")
 	flag.StringVar(&cfg.PluginDir, "plugins", cfg.PluginDir, "Plugin directory")
 	flag.StringVar(&cfg.PublicDir, "public", cfg.PublicDir, "Frontend static files directory")
 	flag.StringVar(&cfg.Storage, "storage", cfg.Storage, "Storage backend: memory|file")
