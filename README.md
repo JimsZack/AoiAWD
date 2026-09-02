@@ -1,16 +1,6 @@
 # GoAWD — 轻量级 EDR for CTF AWD
 
-GoAWD 是 AoiAWD 的 Go 语言重写版，专为 CTF AWD 模式设计的轻量级 EDR（端点检测与响应）系统。
-
-## 与原版 AoiAWD 的区别
-
-| 维度 | AoiAWD (PHP) | GoAWD (Go) |
-|------|-------------|------------|
-| 语言 | PHP 7.2 + C | Go 1.21 |
-| 存储 | MongoDB | 内置 Memory/File |
-| 插件 | PHP include | Go plugin (.so) |
-| 依赖 | MongoDB + PHP | 无外部依赖 |
-| 部署 | 需要 PHP 环境 | 单二进制文件 |
+GoAWD 是专为 CTF AWD（Attack With Defense）模式设计的轻量级 EDR（端点检测与响应）系统。
 
 ## 功能特性
 
@@ -82,8 +72,7 @@ Usage of goawd-roundworm:
 
 靶机:
   ├── goawd-roundworm  (文件系统/进程监控)
-  ├── goawd-guardian   (PWN 套壳)
-  └── TapeWorm         (Web 流量捕获)
+  └── goawd-guardian   (PWN 套壳)
 ```
 
 ## 探针通信协议
@@ -131,10 +120,8 @@ AoiAWD/
 │   ├── pkg/            # 公共包
 │   └── plugins/        # 插件目录
 ├── Frontend/           # Vue 前端
-├── Guardian/           # PWN 探针 (原版 C)
-├── RoundWorm/          # 文件系统探针 (原版 C)
-├── TapeWorm/           # Web 探针 (原版 PHP)
-└── AoiAWD/             # 核心服务器 (原版 PHP)
+├── Guardian/           # PWN 探针 (备用 C 版本)
+└── README.md
 ```
 
 ## 许可证

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -18,13 +17,14 @@ import (
 )
 
 type Server struct {
-	config     *config.Config
-	store      storage.Storage
-	hub        *Hub
-	pluginMgr  *plugin.Manager
-	receiver   *Receiver
-	httpServer *http.Server
-	startTime  time.Time
+	config      *config.Config
+	store       storage.Storage
+	hub         *Hub
+	pluginMgr   *plugin.Manager
+	receiver    *Receiver
+	httpServer  *http.Server
+	rateLimiter *api.RateLimiter
+	startTime   time.Time
 }
 
 func NewServer(cfg *config.Config) (*Server, error) {
@@ -64,8 +64,9 @@ func (s *Server) setupRouter() {
 	mux.HandleFunc("/", s.serveStatic)
 	mux.HandleFunc("/index.html", s.serveStatic)
 
-	// Rate limiter: 100 requests per minute per IP
-	rateLimiter := api.NewRateLimiter(100, time.Minute)
+	// Rate limiter: 600 requests per minute per IP, API endpoints only
+	rateLimiter := api.NewRateLimiter(600, time.Minute)
+	s.rateLimiter = rateLimiter
 
 	s.httpServer = &http.Server{
 		Addr:    s.config.HTTPAddr,
@@ -105,18 +106,18 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 	if full == "" {
 		full = "index.html"
 	}
-	
+
 	// Prevent path traversal by cleaning the path and verifying it stays within PublicDir
 	cleanPath := filepath.Clean(full)
 	fullPath := filepath.Join(s.config.PublicDir, cleanPath)
-	
+
 	// Ensure the resolved path is still within PublicDir
 	if !strings.HasPrefix(fullPath, filepath.Clean(s.config.PublicDir)+string(filepath.Separator)) &&
 		fullPath != filepath.Clean(s.config.PublicDir) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
-	
+
 	http.ServeFile(w, r, fullPath)
 }
 
@@ -161,23 +162,10 @@ func (s *Server) Run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	s.httpServer.Shutdown(shutdownCtx)
+	if s.rateLimiter != nil {
+		s.rateLimiter.Stop()
+	}
 	s.store.Close()
 	log.Println("GoAWD server stopped")
 	return nil
-}
-
-func (s *Server) Stats() map[string]interface{} {
-	ctx := context.Background()
-	return map[string]interface{}{
-		"web":        s.store.Count(ctx, "web"),
-		"pwn":        s.store.Count(ctx, "pwn"),
-		"filesystem": s.store.Count(ctx, "filesystem"),
-		"process":    s.store.Count(ctx, "process"),
-		"alert":      s.store.Count(ctx, "alert"),
-	}
-}
-
-func (s *Server) ExportStats() string {
-	data, _ := json.Marshal(s.Stats())
-	return string(data)
 }

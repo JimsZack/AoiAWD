@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 )
 
 const magicGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -182,9 +181,4 @@ func (c *Conn) Close() error {
 
 func (c *Conn) UnderlyingConn() net.Conn {
 	return c.conn
-}
-
-func IsWebSocketRequest(r *http.Request) bool {
-	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
-		strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade")
 }

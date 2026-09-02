@@ -45,16 +45,3 @@ func (s *Sender) Close() error {
 	defer s.mu.Unlock()
 	return s.conn.Close()
 }
-
-func (s *Sender) SendWithRetry(msg interface{}, maxRetries int) error {
-	var lastErr error
-	for i := 0; i <= maxRetries; i++ {
-		if err := s.Send(msg); err == nil {
-			return nil
-		} else {
-			lastErr = err
-		}
-		time.Sleep(time.Duration(i+1) * time.Second)
-	}
-	return lastErr
-}

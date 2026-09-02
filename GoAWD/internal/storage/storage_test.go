@@ -2,8 +2,113 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 )
+
+func TestFileCloseFlushesPendingWrites(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "goawd.json")
+	f, err := NewFile(path)
+	if err != nil {
+		t.Fatalf("NewFile: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := f.Save(ctx, "web", "id1", map[string]interface{}{"uri": "/index.php"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	// Nothing is flushed until the 5s tick or Close, so Close must flush sync.
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !json.Valid(raw) {
+		t.Fatalf("flushed file is not valid JSON: %s", raw)
+	}
+	var snapshot map[string][]fileEntry
+	if err := json.Unmarshal(raw, &snapshot); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(snapshot["web"]) != 1 {
+		t.Fatalf("flushed %d web entries, want 1", len(snapshot["web"]))
+	}
+	if string(snapshot["web"][0].Data) == "" {
+		t.Error("entry payload is empty")
+	}
+}
+
+func TestFileCloseIsIdempotent(t *testing.T) {
+	f, err := NewFile(filepath.Join(t.TempDir(), "goawd.json"))
+	if err != nil {
+		t.Fatalf("NewFile: %v", err)
+	}
+	f.Close()
+	// Regression guard: closing twice used to panic on a closed channel.
+	f.Close()
+}
+
+func TestMemoryEvictsOldestEntries(t *testing.T) {
+	m := NewMemory()
+	m.maxEntries = 100
+	ctx := context.Background()
+
+	// Eviction triggers once the collection is evictBatch entries over the cap,
+	// then trims back down to exactly maxEntries.
+	total := m.maxEntries + evictBatch
+	for i := 0; i < total; i++ {
+		m.Save(ctx, "web", "id-"+strconv.Itoa(i), map[string]interface{}{"i": i})
+	}
+
+	if got := m.Count(ctx, "web"); got != int64(m.maxEntries) {
+		t.Fatalf("count = %d, want %d", got, m.maxEntries)
+	}
+
+	// The newest documents must survive, the oldest must be gone.
+	if _, err := m.Get(ctx, "web", "id-"+strconv.Itoa(total-1)); err != nil {
+		t.Fatalf("Get newest: %v", err)
+	}
+	got, _ := m.Get(ctx, "web", "id-0")
+	if got != nil {
+		t.Error("oldest entry should have been evicted")
+	}
+}
+
+func TestFileEvictsOldestEntries(t *testing.T) {
+	f, err := NewFile(filepath.Join(t.TempDir(), "goawd.json"))
+	if err != nil {
+		t.Fatalf("NewFile: %v", err)
+	}
+	defer f.Close()
+
+	f.maxEntries = 100
+	ctx := context.Background()
+
+	// Eviction triggers once the collection is evictBatch entries over the cap,
+	// then trims back down to exactly maxEntries.
+	total := f.maxEntries + evictBatch
+	for i := 0; i < total; i++ {
+		f.Save(ctx, "web", "id-"+strconv.Itoa(i), map[string]interface{}{"i": i})
+	}
+
+	if got := f.Count(ctx, "web"); got != int64(f.maxEntries) {
+		t.Fatalf("count = %d, want %d", got, f.maxEntries)
+	}
+	if _, err := f.Get(ctx, "web", "id-"+strconv.Itoa(total-1)); err != nil {
+		t.Fatalf("Get newest: %v", err)
+	}
+	got, _ := f.Get(ctx, "web", "id-0")
+	if got != nil {
+		t.Error("oldest entry should have been evicted")
+	}
+}
 
 func TestMemorySaveAndGet(t *testing.T) {
 	m := NewMemory()

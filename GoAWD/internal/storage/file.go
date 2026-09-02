@@ -17,26 +17,37 @@ type fileEntry struct {
 }
 
 type File struct {
-	mu       sync.RWMutex
-	path     string
-	data     map[string][]fileEntry
-	index    map[string]map[string]int
-	counts   map[string]int64
-	flushMu  sync.Mutex
-	dirty    bool
-	stopCh   chan struct{}
+	mu   sync.RWMutex
+	path string
+
+	// maxEntries caps how many documents a collection keeps; the oldest are
+	// evicted once the cap is exceeded.
+	maxEntries int
+
+	data  map[string][]fileEntry
+	index map[string]map[string]int
+
+	flushMu   sync.Mutex
+	dirty     bool
+	stopCh    chan struct{}
+	doneCh    chan struct{}
+	closeOnce sync.Once
 }
+
+// maxFileEntries is the default per-collection cap for the file backend.
+const maxFileEntries = 50000
 
 func NewFile(path string) (*File, error) {
 	if path == "" {
 		path = "./goawd.json"
 	}
 	f := &File{
-		path:   path,
-		data:   make(map[string][]fileEntry),
-		index:  make(map[string]map[string]int),
-		counts: make(map[string]int64),
-		stopCh: make(chan struct{}),
+		path:       path,
+		maxEntries: maxFileEntries,
+		data:       make(map[string][]fileEntry),
+		index:      make(map[string]map[string]int),
+		stopCh:     make(chan struct{}),
+		doneCh:     make(chan struct{}),
 	}
 	if err := f.load(); err != nil {
 		return nil, err
@@ -65,7 +76,6 @@ func (f *File) load() error {
 		for i, e := range entries {
 			f.index[coll][e.ID] = i
 		}
-		f.counts[coll] = int64(len(entries))
 	}
 	return nil
 }
@@ -77,6 +87,7 @@ func (f *File) autoFlush() {
 		select {
 		case <-f.stopCh:
 			f.flush()
+			close(f.doneCh)
 			return
 		case <-ticker.C:
 			f.flush()
@@ -133,10 +144,39 @@ func (f *File) Save(_ context.Context, collection, id string, doc interface{}) e
 	} else {
 		f.data[collection] = append(f.data[collection], entry)
 		f.index[collection][id] = len(f.data[collection]) - 1
-		f.counts[collection]++
+		if f.evictLocked(collection) {
+			f.reindexLocked(collection)
+		}
 	}
 	f.dirty = true
 	return nil
+}
+
+// evictLocked drops the oldest entries once a collection grows past its cap.
+// It reports whether anything was dropped; the caller must reindex then.
+//
+// Eviction waits until a full batch has accumulated so the O(n) reindex is
+// amortised across evictBatch inserts instead of running on every Save.
+func (f *File) evictLocked(collection string) bool {
+	entries := f.data[collection]
+	drop := len(entries) - f.maxEntries
+	if drop < evictBatch {
+		return false
+	}
+	// Copy into a fresh slice so the evicted prefix can be garbage collected.
+	kept := make([]fileEntry, len(entries)-drop)
+	copy(kept, entries[drop:])
+	f.data[collection] = kept
+	return true
+}
+
+func (f *File) reindexLocked(collection string) {
+	entries := f.data[collection]
+	idx := make(map[string]int, len(entries))
+	for i, e := range entries {
+		idx[e.ID] = i
+	}
+	f.index[collection] = idx
 }
 
 func (f *File) Get(_ context.Context, collection, id string) (interface{}, error) {
@@ -184,7 +224,7 @@ func (f *File) Paginate(_ context.Context, collection string, page, count int) (
 func (f *File) Count(_ context.Context, collection string) int64 {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	return f.counts[collection]
+	return int64(len(f.data[collection]))
 }
 
 func (f *File) All(_ context.Context, collection string) ([]interface{}, error) {
@@ -202,6 +242,10 @@ func (f *File) All(_ context.Context, collection string) ([]interface{}, error) 
 }
 
 func (f *File) Close() error {
-	close(f.stopCh)
+	f.closeOnce.Do(func() {
+		close(f.stopCh)
+		// Wait for the final flush so no buffered data is lost on shutdown.
+		<-f.doneCh
+	})
 	return nil
 }

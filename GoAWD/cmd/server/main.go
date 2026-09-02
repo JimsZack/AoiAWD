@@ -44,9 +44,16 @@ func main() {
 
 	log.Printf("GoAWD %s (built %s) starting...", version, buildTime)
 
+	tokenProvided := cfg.Token != ""
+
 	server, err := core.NewServer(cfg)
 	if err != nil {
 		log.Fatalf("failed to create server: %v", err)
+	}
+
+	if !tokenProvided {
+		// Validate() generated a random token: print it or the panel is unusable.
+		log.Printf("No token supplied, generated access token: %s", cfg.Token)
 	}
 
 	for _, p := range plugin.Registered() {

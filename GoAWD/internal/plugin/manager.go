@@ -1,13 +1,15 @@
 package plugin
 
 import (
-	goplugin "plugin"
 	"path/filepath"
+	goplugin "plugin"
 	"strings"
 	"sync"
 )
 
-type HookFunc func(data interface{}) interface{}
+// HookFunc receives the caller that triggered the invocation (used to raise
+// alerts) together with the payload, and returns the (possibly modified) data.
+type HookFunc func(caller interface{}, data interface{}) interface{}
 
 type Plugin interface {
 	Name() string
@@ -15,10 +17,10 @@ type Plugin interface {
 }
 
 type Manager struct {
-	mu      sync.RWMutex
-	hooks   map[string][]HookFunc
-	plugins []Plugin
-	names   []string
+	mu        sync.RWMutex
+	hooks     map[string][]HookFunc
+	plugins   []Plugin
+	names     []string
 	pluginDir string
 }
 
@@ -72,7 +74,8 @@ func (m *Manager) RegisterPlugin(p Plugin) {
 	p.Register(m)
 }
 
-// Invoke executes hooks with a caller passed via context (thread-safe)
+// Invoke runs the registered hooks for routine/operation in order, passing the
+// caller through to each hook so that plugins can report alerts back to it.
 func (m *Manager) Invoke(caller interface{}, routine, operation string, data interface{}) interface{} {
 	m.mu.RLock()
 	key := hookKey(routine, operation)
@@ -80,42 +83,10 @@ func (m *Manager) Invoke(caller interface{}, routine, operation string, data int
 	copy(hooks, m.hooks[key])
 	m.mu.RUnlock()
 
-	if len(hooks) == 0 {
-		return data
-	}
-
-	// Use a per-invocation context to avoid race on global caller
-	ctx := &invokeContext{caller: caller}
 	for _, hook := range hooks {
-		data = hook(data)
+		data = hook(caller, data)
 	}
-	_ = ctx // caller is accessible via GetCaller() if needed
 	return data
-}
-
-type invokeContext struct {
-	caller interface{}
-}
-
-func (m *Manager) GetCaller() interface{} {
-	return GetCaller()
-}
-
-var (
-	currentCaller interface{}
-	callerMu      sync.RWMutex
-)
-
-func SetCaller(c interface{}) {
-	callerMu.Lock()
-	defer callerMu.Unlock()
-	currentCaller = c
-}
-
-func GetCaller() interface{} {
-	callerMu.RLock()
-	defer callerMu.RUnlock()
-	return currentCaller
 }
 
 func (m *Manager) Names() []string {
@@ -142,6 +113,8 @@ func (m *Manager) Reload() []string {
 }
 
 func (m *Manager) LoadPlugins(dir string) []string {
+	m.SetPluginDir(dir)
+
 	pattern := filepath.Join(dir, "*.so")
 	matches, err := filepath.Glob(pattern)
 	if err != nil || len(matches) == 0 {

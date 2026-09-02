@@ -14,12 +14,20 @@ type Memory struct {
 	mu    sync.RWMutex
 	data  map[string][]memEntry
 	index map[string]map[string]int
+
+	// maxEntries caps how many documents a collection keeps; the oldest are
+	// evicted once the cap is exceeded.
+	maxEntries int
 }
+
+// maxMemEntries is the default per-collection cap for the memory backend.
+const maxMemEntries = 50000
 
 func NewMemory() *Memory {
 	return &Memory{
-		data:  make(map[string][]memEntry),
-		index: make(map[string]map[string]int),
+		data:       make(map[string][]memEntry),
+		index:      make(map[string]map[string]int),
+		maxEntries: maxMemEntries,
 	}
 }
 
@@ -36,7 +44,37 @@ func (m *Memory) Save(_ context.Context, collection, id string, doc interface{})
 	}
 	m.data[collection] = append(m.data[collection], memEntry{id: id, doc: doc})
 	m.index[collection][id] = len(m.data[collection]) - 1
+	if m.evictLocked(collection) {
+		m.reindexLocked(collection)
+	}
 	return nil
+}
+
+// evictLocked drops the oldest entries once a collection grows past its cap.
+// It reports whether anything was dropped; the caller must reindex then.
+//
+// Eviction waits until a full batch has accumulated so the O(n) reindex is
+// amortised across evictBatch inserts instead of running on every Save.
+func (m *Memory) evictLocked(collection string) bool {
+	entries := m.data[collection]
+	drop := len(entries) - m.maxEntries
+	if drop < evictBatch {
+		return false
+	}
+	// Copy into a fresh slice so the evicted prefix can be garbage collected.
+	kept := make([]memEntry, len(entries)-drop)
+	copy(kept, entries[drop:])
+	m.data[collection] = kept
+	return true
+}
+
+func (m *Memory) reindexLocked(collection string) {
+	entries := m.data[collection]
+	idx := make(map[string]int, len(entries))
+	for i, e := range entries {
+		idx[e.id] = i
+	}
+	m.index[collection] = idx
 }
 
 func (m *Memory) Get(_ context.Context, collection, id string) (interface{}, error) {

@@ -9,9 +9,9 @@ import (
 )
 
 type ZombieKiller struct {
-	mu         sync.Mutex
-	deletes    map[string]time.Time
-	window     time.Duration
+	mu      sync.Mutex
+	deletes map[string]time.Time
+	window  time.Duration
 }
 
 func init() {
@@ -29,7 +29,7 @@ func (z *ZombieKiller) Register(m *plugin.Manager) {
 	m.Register("FileSystem", "processLog", z.processFileEvent)
 }
 
-func (z *ZombieKiller) processFileEvent(data interface{}) interface{} {
+func (z *ZombieKiller) processFileEvent(caller interface{}, data interface{}) interface{} {
 	fe, ok := data.(*types.FileEventData)
 	if !ok {
 		return data
@@ -50,7 +50,7 @@ func (z *ZombieKiller) processFileEvent(data interface{}) interface{} {
 		if deleteTime, exists := z.deletes[fe.Path]; exists {
 			if now.Sub(deleteTime) <= z.window {
 				delete(z.deletes, fe.Path)
-				z.alert("FileSystem", "ZombieKiller",
+				alert(caller, "FileSystem", "ZombieKiller",
 					"检测到不死马行为: "+fe.Path+" 在删除后被快速重建",
 					fe.ID, 1)
 			} else {
@@ -69,11 +69,8 @@ func (z *ZombieKiller) processFileEvent(data interface{}) interface{} {
 	return data
 }
 
-func (z *ZombieKiller) alert(alertType, pluginName, message, refID string, refPage int) {
-	caller := plugin.GetCaller()
-	if caller == nil {
-		return
-	}
+// alert reports through the caller (the GoAWD receiver) if it supports it.
+func alert(caller interface{}, alertType, pluginName, message, refID string, refPage int) {
 	if setter, ok := caller.(interface {
 		SetAlert(string, string, string, string, int)
 	}); ok {

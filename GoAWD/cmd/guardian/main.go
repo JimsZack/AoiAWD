@@ -136,7 +136,7 @@ func main() {
 	go func() {
 		defer func() { done <- struct{}{} }()
 		// Read raw bytes from stdin, not line by line (interactive mode)
-		buf := make([]byte, 1)
+		buf := make([]byte, 4096)
 		for {
 			n, err := os.Stdin.Read(buf)
 			if n > 0 {

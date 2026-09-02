@@ -37,12 +37,12 @@ type FileUpload struct {
 }
 
 type WebLogData struct {
-	ID     string `json:"id,omitempty" bson:"-"`
-	Time   int64  `json:"time" bson:"time"`
-	Script string `json:"script" bson:"script"`
-	Method string `json:"method" bson:"method"`
-	URI    string `json:"uri" bson:"uri"`
-	Remote string `json:"remote" bson:"remote"`
+	ID     string            `json:"id,omitempty" bson:"-"`
+	Time   int64             `json:"time" bson:"time"`
+	Script string            `json:"script" bson:"script"`
+	Method string            `json:"method" bson:"method"`
+	URI    string            `json:"uri" bson:"uri"`
+	Remote string            `json:"remote" bson:"remote"`
 	Header map[string]string `json:"header" bson:"header"`
 	GET    map[string]string `json:"get" bson:"get"`
 	POST   map[string]string `json:"post" bson:"post"`
@@ -81,6 +81,7 @@ type PwnProcess struct {
 	Maps      string      `json:"maps" bson:"maps"`
 	Stdin     StreamStat  `json:"stdin" bson:"stdin"`
 	Stdout    StreamStat  `json:"stdout" bson:"stdout"`
+	Truncated bool        `json:"truncated" bson:"truncated"`
 	StreamLog []StreamLog `json:"streamlog" bson:"streamlog"`
 }
 
@@ -151,11 +152,11 @@ type AlertReference struct {
 }
 
 type AlertLogData struct {
-	ID        string        `json:"id,omitempty" bson:"-"`
-	Time      int64         `json:"time" bson:"time"`
-	Type      string        `json:"type" bson:"type"`
-	Plugin    string        `json:"plugin" bson:"plugin"`
-	Message   string        `json:"message" bson:"message"`
+	ID        string         `json:"id,omitempty" bson:"-"`
+	Time      int64          `json:"time" bson:"time"`
+	Type      string         `json:"type" bson:"type"`
+	Plugin    string         `json:"plugin" bson:"plugin"`
+	Message   string         `json:"message" bson:"message"`
 	Reference AlertReference `json:"reference" bson:"reference"`
 }
 

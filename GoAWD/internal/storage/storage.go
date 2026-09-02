@@ -25,11 +25,9 @@ func New(backend, path string) (Storage, error) {
 	}
 }
 
-type PaginatedResult struct {
-	Page     int           `json:"page"`
-	LastPage int           `json:"last_page"`
-	Data     []interface{} `json:"data"`
-}
+// evictBatch is how many entries are dropped at once when a collection exceeds
+// its cap, so the O(n) index rebuild stays amortised O(1) per insert.
+const evictBatch = 1024
 
 func NormalizePage(page, count, total int) (normalizedPage, offset, lastPage int) {
 	if count <= 0 {

@@ -35,7 +35,7 @@ func fakeFlag() string {
 	return "flag{" + hex.EncodeToString(b) + "}"
 }
 
-func (f *FlagBuster) processWebBuffer(data interface{}) interface{} {
+func (f *FlagBuster) processWebBuffer(caller interface{}, data interface{}) interface{} {
 	web, ok := data.(*types.WebLogData)
 	if !ok {
 		return data
@@ -51,12 +51,12 @@ func (f *FlagBuster) processWebBuffer(data interface{}) interface{} {
 
 	if modified != original {
 		web.Buffer = modified
-		f.alert("Web", "FlagBuster", "发现Web应答包含flag，已替换为随机flag", web.ID, 1)
+		alert(caller, "Web", "FlagBuster", "发现Web应答包含flag，已替换为随机flag", web.ID, 1)
 	}
 	return data
 }
 
-func (f *FlagBuster) processPWNBuffer(data interface{}) interface{} {
+func (f *FlagBuster) processPWNBuffer(caller interface{}, data interface{}) interface{} {
 	proc, ok := data.(*types.PwnProcess)
 	if !ok {
 		return data
@@ -72,17 +72,14 @@ func (f *FlagBuster) processPWNBuffer(data interface{}) interface{} {
 		})
 		if modified != original {
 			proc.StreamLog[i].Buffer = modified
-			f.alert("PWN", "FlagBuster", "发现PWN输出包含flag，已替换为随机flag", proc.ID, 1)
+			alert(caller, "PWN", "FlagBuster", "发现PWN输出包含flag，已替换为随机flag", proc.ID, 1)
 		}
 	}
 	return data
 }
 
-func (f *FlagBuster) alert(alertType, pluginName, message, refID string, refPage int) {
-	caller := plugin.GetCaller()
-	if caller == nil {
-		return
-	}
+// alert reports through the caller (the GoAWD receiver) if it supports it.
+func alert(caller interface{}, alertType, pluginName, message, refID string, refPage int) {
 	if setter, ok := caller.(interface {
 		SetAlert(string, string, string, string, int)
 	}); ok {

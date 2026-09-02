@@ -28,7 +28,7 @@ func (k *KingWatcher) Register(m *plugin.Manager) {
 	m.Register("FileSystem", "processLog", k.processFileEvent)
 }
 
-func (k *KingWatcher) processFileEvent(data interface{}) interface{} {
+func (k *KingWatcher) processFileEvent(caller interface{}, data interface{}) interface{} {
 	fe, ok := data.(*types.FileEventData)
 	if !ok {
 		return data
@@ -40,18 +40,15 @@ func (k *KingWatcher) processFileEvent(data interface{}) interface{} {
 
 	switch fe.Oper {
 	case "MODIFY", "CREATE", "DELETE", "DELETE_SELF", "MOVED_FROM", "MOVED_TO":
-		k.alert("FileSystem", "KingWatcher",
+		alert(caller, "FileSystem", "KingWatcher",
 			"检测到赛点文件被修改: "+fe.Path+" (操作: "+fe.Oper+")",
 			fe.ID, 1)
 	}
 	return data
 }
 
-func (k *KingWatcher) alert(alertType, pluginName, message, refID string, refPage int) {
-	caller := plugin.GetCaller()
-	if caller == nil {
-		return
-	}
+// alert reports through the caller (the GoAWD receiver) if it supports it.
+func alert(caller interface{}, alertType, pluginName, message, refID string, refPage int) {
 	if setter, ok := caller.(interface {
 		SetAlert(string, string, string, string, int)
 	}); ok {

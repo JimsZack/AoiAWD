@@ -18,20 +18,24 @@ import (
 	"goawd/internal/types"
 )
 
+// maxPWNStreamLog caps how many chunks a single PWN session keeps, so a
+// long-running binary cannot exhaust the server's memory.
+const maxPWNStreamLog = 4096
+
 type AlertSetter interface {
 	SetAlert(alertType, pluginName, message, refID string, refPage int)
 }
 
 type pwnProcEntry struct {
-	mu  sync.Mutex
+	mu   sync.Mutex
 	proc *types.PwnProcess
 }
 
 type Receiver struct {
-	addr       string
-	storage    storage.Storage
-	pluginMgr  *plugin.Manager
-	hub        *Hub
+	addr      string
+	storage   storage.Storage
+	pluginMgr *plugin.Manager
+	hub       *Hub
 
 	pwnSockets sync.Map
 	pwnProcess sync.Map
@@ -40,21 +44,15 @@ type Receiver struct {
 
 	connCounter uint64
 	listener    net.Listener
-	startTime   time.Time
 }
 
 func NewReceiver(addr string, store storage.Storage, hub *Hub, mgr *plugin.Manager) *Receiver {
 	return &Receiver{
-		addr:       addr,
-		storage:    store,
-		pluginMgr:  mgr,
-		hub:        hub,
-		startTime:  time.Now(),
+		addr:      addr,
+		storage:   store,
+		pluginMgr: mgr,
+		hub:       hub,
 	}
-}
-
-func (r *Receiver) StartTime() time.Time {
-	return r.startTime
 }
 
 func (r *Receiver) CurrentProcessPIDs() []int {
@@ -161,9 +159,13 @@ func (r *Receiver) processMessage(data []byte, conn net.Conn, connID uint64) {
 
 func (r *Receiver) handlePing(conn net.Conn) {
 	resp := types.ProbeMessage{Type: types.MsgTypePong, Data: []interface{}{}}
-	data, _ := json.Marshal(resp)
-	conn.Write(data)
-	conn.Write([]byte("\n"))
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return
+	}
+	if _, err := conn.Write(append(data, '\n')); err != nil {
+		log.Printf("write pong: %v", err)
+	}
 }
 
 func (r *Receiver) handleWeb(data interface{}, conn net.Conn) {
@@ -177,7 +179,7 @@ func (r *Receiver) handleWeb(data interface{}, conn net.Conn) {
 		return
 	}
 
-	web.ID = 	types.GenID()
+	web.ID = types.GenID()
 	web.Time = types.Now()
 	r.decodeWebData(&web)
 
@@ -226,7 +228,7 @@ func (r *Receiver) handleNewFile(data interface{}) {
 		return
 	}
 
-	fe.ID = 	types.GenID()
+	fe.ID = types.GenID()
 	if fe.Time == 0 {
 		fe.Time = types.Now()
 	}
@@ -251,7 +253,7 @@ func (r *Receiver) handleNewProcess(data interface{}) {
 		return
 	}
 
-	pd.ID = 	types.GenID()
+	pd.ID = types.GenID()
 	if pd.Time == 0 {
 		pd.Time = types.Now()
 	}
@@ -341,10 +343,14 @@ func (r *Receiver) processPWNStream(data []byte, connID uint64) {
 
 	chunk := string(data)
 	entry.mu.Lock()
-	entry.proc.StreamLog = append(entry.proc.StreamLog, types.StreamLog{
-		Type:   socket.Type,
-		Buffer: chunk,
-	})
+	if len(entry.proc.StreamLog) < maxPWNStreamLog {
+		entry.proc.StreamLog = append(entry.proc.StreamLog, types.StreamLog{
+			Type:   socket.Type,
+			Buffer: chunk,
+		})
+	} else {
+		entry.proc.Truncated = true
+	}
 	if socket.Type == "stdin" {
 		entry.proc.Stdin.Group++
 		entry.proc.Stdin.Byte += len(chunk)
@@ -397,7 +403,7 @@ func (r *Receiver) handlePWNClose(connID uint64) {
 
 func (r *Receiver) SetAlert(alertType, pluginName, message, refID string, refPage int) {
 	alert := types.AlertLogData{
-		ID:      	types.GenID(),
+		ID:      types.GenID(),
 		Time:    types.Now(),
 		Type:    alertType,
 		Plugin:  pluginName,
@@ -409,11 +415,4 @@ func (r *Receiver) SetAlert(alertType, pluginName, message, refID string, refPag
 	}
 	r.storage.Save(context.Background(), types.CollAlert, alert.ID, alert)
 	r.hub.Notify(types.WSTypeAlert)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
