@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0.0-blue.svg" alt="version">
-  <img src="https://img.shields.io/badge/license-AGPL--3.0-green.svg" alt="license">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license">
   <img src="https://img.shields.io/badge/go-1.21+-00ADD8.svg" alt="go version">
   <img src="https://img.shields.io/badge/vue-2.x-brightgreen.svg" alt="vue version">
 </p>
