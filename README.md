@@ -135,8 +135,8 @@ AoiAWD/
 │   ├── plugins/        # 内置插件
 │   └── docs/           # 项目文档
 ├── Frontend/           # Vue.js 前端
-├── Guardian/           # C 版 PWN 探针 (备用)
 ├── Readme/             # 截图资源
+├── wiki/               # Wiki 文档
 ├── Dockerfile          # Docker 构建文件
 ├── docker-compose.yml  # Docker Compose 配置
 ├── build.sh            # 打包脚本
