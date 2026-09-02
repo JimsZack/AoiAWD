@@ -1,0 +1,6 @@
+export { ping, getInfo, getPlugins, reloadPlugins } from './home'
+export { getWebLogs, getWebDetail, downloadAutoScript } from './webLog'
+export { getPwnLogs, getPwnDetail, downloadPwn } from './pwnLog'
+export { getFileLogs, downloadFile } from './fileLog'
+export { getProcessLogs, getCurrentProcess, getActiveProcess } from './processLog'
+export { getAlertLogs } from './warnLog'

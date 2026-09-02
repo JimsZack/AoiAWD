@@ -1,121 +1,121 @@
 <template>
-  <div>
-    <el-card>
-      <div slot="header" class="clearfix">
-        <el-button @click="goBack">返回</el-button>
-        <el-tag type="success">URL:{{logData.uri}}</el-tag>
-        <el-tag type="success">Remote:{{logData.remote}}</el-tag>
-        <el-tag type="success">Method:{{logData.method}}</el-tag>
-        <el-button style="float: right;" @click="downloadPacket">一键重放</el-button>
-      </div>
-      <el-collapse :value="['header', 'get', 'post', 'cookie', 'file', 'buffer']">
-        <el-collapse-item title="header" name="header">
-          <div>
-            <div v-for="(value, key) in logData.header">
-              <span style="font-weight:600">{{key}}</span>:
-              <span>{{value}}</span>
-            </div>
-          </div>
+  <div class="detail-page" v-loading="loading">
+    <el-page-header @back="$router.back()" title="返回列表">
+      <template #content>
+        <span class="page-title">Web日志详情</span>
+      </template>
+    </el-page-header>
+
+    <template v-if="detail">
+      <el-descriptions :column="2" border class="info-section">
+        <el-descriptions-item label="URL">{{ detail.url }}</el-descriptions-item>
+        <el-descriptions-item label="Remote">{{ detail.ip }}</el-descriptions-item>
+        <el-descriptions-item label="Method">
+          <el-tag>{{ detail.method }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="时间">{{ detail.timestamp }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-collapse class="detail-section">
+        <el-collapse-item title="Header" name="header">
+          <pre class="content-block">{{ detail.header || '无数据' }}</pre>
         </el-collapse-item>
-        <el-collapse-item title="get" name="get">
-          <div>
-            <div v-for="(value, key) in logData.get">
-              <span style="font-weight:600">{{key}}</span>:
-              <span>{{value}}</span>
-            </div>
-          </div>
+        <el-collapse-item title="GET参数" name="get">
+          <pre class="content-block">{{ detail.get || '无数据' }}</pre>
         </el-collapse-item>
-        <el-collapse-item title="post" name="post">
-          <div>
-            <div v-for="(value, key) in logData.post">
-              <span style="font-weight:600">{{key}}</span>:
-              <span>{{value}}</span>
-            </div>
-          </div>
+        <el-collapse-item title="POST参数" name="post">
+          <pre class="content-block">{{ detail.post || '无数据' }}</pre>
         </el-collapse-item>
-        <el-collapse-item title="cookie" name="cookie">
-          <div>
-            <div v-for="(value, key) in logData.cookie">
-              <span style="font-weight:600">{{key}}</span>:
-              <span>{{value}}</span>
-            </div>
-          </div>
+        <el-collapse-item title="Cookie" name="cookie">
+          <pre class="content-block">{{ detail.cookie || '无数据' }}</pre>
         </el-collapse-item>
-        <el-collapse-item title="file" name="file">
-          <div>{{logData.file}}</div>
+        <el-collapse-item title="File" name="file">
+          <pre class="content-block">{{ detail.file || '无数据' }}</pre>
         </el-collapse-item>
-        <el-collapse-item title="buffer" name="buffer">
-          <div>{{logData.buffer}}</div>
+        <el-collapse-item title="Buffer" name="buffer">
+          <pre class="content-block" v-html="bufferHexdump"></pre>
         </el-collapse-item>
       </el-collapse>
-    </el-card>
+
+      <div class="action-bar">
+        <el-button type="primary" @click="handleDownload">
+          <el-icon><Download /></el-icon>
+          一键重放
+        </el-button>
+      </div>
+    </template>
   </div>
 </template>
 
-<script>
-import axios from "axios";
-import config from "../../config.js";
-import array_walk_recursive from "locutus/php/array/array_walk_recursive";
-export default {
-  methods: {
-    goBack() {
-      this.$router.push({
-        path: "/webLog",
-        query: {
-          page: this.page
-        }
-      });
-    },
-    downloadPacket() {
-      let downloadUrl = `${config.ajax_addr}/downloadwebautoscript?id=${
-        this.id
-      }&token=${sessionStorage.getItem("accessToken")}`;
-      let link = document.createElement("a");
-      link.display = "none";
-      link.href = downloadUrl;
-      link.setAttribute("download", `${this.id}.php`);
-      console.log(link);
-      link.onload = () => {
-        document.body.removeChild(link);
-      };
-      document.body.appendChild(link);
-      link.click();
-    },
-    decodeData(data, key) {
-      return decodeURIComponent(data);
-    }
-  },
-  data() {
-    return {
-      logData: {},
-      id: 0,
-      page: 1
-    };
-  },
-  created() {
-    this.id = this.$route.query.id;
-    this.page = this.$route.query.page;
-    axios
-      .get(`${config.ajax_addr}/webdetail?id=${this.id}`)
-      .then(res => {
-        let logData = res.data;
-        array_walk_recursive(logData, this.decodeData);
-        this.logData = logData;
-      })
-      .catch(err => {
-        console.error(err);
-      });
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { getWebDetail, downloadAutoScript } from '@/api/apis'
+import { hexdump, downloadBlob } from '@/utils'
+import type { WebLog } from '@/types'
+
+const route = useRoute()
+const detail = ref<WebLog | null>(null)
+const loading = ref(true)
+
+const bufferHexdump = computed(() => {
+  if (!detail.value?.buffer) return '无数据'
+  return hexdump(atob(detail.value.buffer))
+})
+
+const fetchData = async () => {
+  try {
+    const { data } = await getWebDetail(route.params.id as string)
+    detail.value = data
+  } finally {
+    loading.value = false
   }
-};
+}
+
+const handleDownload = async () => {
+  const token = sessionStorage.getItem('token') || ''
+  const response = await downloadAutoScript(route.params.id as string, token)
+  downloadBlob(response.data, `replay_${route.params.id}.php`)
+}
+
+onMounted(fetchData)
 </script>
 
-<style>
-.item {
-  margin: 10px;
-  font-size: 18px;
+<style scoped>
+.detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
-.item__title {
-  font-weight: 800;
-  color: greenyellow;
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.info-section {
+  margin-top: 16px;
+}
+
+.detail-section {
+  margin-top: 16px;
+}
+
+.content-block {
+  background: #f5f7fa;
+  padding: 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+.action-bar {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
 }
 </style>

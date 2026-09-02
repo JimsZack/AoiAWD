@@ -1,0 +1,37 @@
+:root {
+  --color-primary: #667eea;
+  --color-primary-light: #8fa4f0;
+  --color-primary-dark: #5a6fd6;
+  --color-success: #67C23A;
+  --color-warning: #E6A23C;
+  --color-danger: #F56C6C;
+  --color-info: #909399;
+}
+
+/* NProgress customization */
+#nprogress .bar {
+  background: var(--color-primary) !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--color-primary), 0 0 5px var(--color-primary) !important;
+}
+
+/* Element Plus overrides */
+.el-menu {
+  border-right: none !important;
+}
+
+.el-card {
+  border-radius: 8px;
+}
+
+.el-button--primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.el-button--primary:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary-light);
+}

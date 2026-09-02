@@ -1,145 +1,97 @@
 <template>
-  <section>
-    <el-row style="margin-top:20px;margin-bottom:20px;">
-      <el-col :span="12" :offset="6">
-        <el-pagination
-          background
-          layout="prev, pager, next, jumper"
-          @current-change="changePage"
-          :page-size="20"
-          :current-page.sync="page"
-          :total="lastPage * 20"
-        ></el-pagination>
-      </el-col>
-      <el-col :span="6">
-        <el-button @click="gotoLatest">前往最新</el-button>
-        <span style="margin-left:20px">实时同步</span>
-        <el-switch v-model="latestFlag"></el-switch>
-      </el-col>
-    </el-row>
-    <el-table
-      size="small"
-      v-loading="loading"
-      :data="tableData"
-      border
-      :row-class-name="tableRowClassName"
-      style="width: 100%"
-    >
-      <el-table-column prop="time" label="时间" min-width="25"></el-table-column>
-      <el-table-column prop="oper_str" 
-                       label="操作" 
-                       min-width="25"
-                       :filters="[{text:'CREATE', value:'CREATE'},
-                                  {text:'MODIFY', value:'MODIFY'},
-                                  {text:'CLOSE_WRITE', value:'CLOSE_WRITE'},
-                                  {text:'ATTRIB', value:'ATTRIB'},
-                                  {text:'DELETE', value:'DELETE'},
-                                  {text:'警告', value:'warn'}]"
-                       :filter-method="filterTag"
-                       filter-placement="bottom-end"></el-table-column>
-      <el-table-column label="路径" min-width="100">
-        <template slot-scope="scope">
-          <span v-if="scope.row.isdir == 1" style="color:green">{{scope.row.path}}</span>
-          <span v-if="scope.row.isdir == 0">{{scope.row.path}}</span>
+  <LogTable
+    :data="logs"
+    :total="total"
+    :loading="loading"
+    :page-size="pageSize"
+    @refresh="fetchLogs(currentPage)"
+    @page-change="handlePageChange"
+  >
+    <template #filters>
+      <el-select v-model="operationFilter" placeholder="操作类型" clearable size="small">
+        <el-option v-for="op in operations" :key="op" :label="op" :value="op" />
+      </el-select>
+    </template>
+
+    <template #columns>
+      <el-table-column prop="timestamp" label="时间" width="180" sortable />
+      <el-table-column prop="operation" label="操作" width="120">
+        <template #default="{ row }">
+          <el-tag :type="getOperationType(row.operation)" size="small">{{ row.operation }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="content" label="文件内容">
-        <template slot-scope="scope">
-          <el-button type="text" @click="download(scope.row)">{{scope.row.content}}</el-button>
+      <el-table-column prop="path" label="路径" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span :class="{ 'is-dir': row.path.endsWith('/') }">{{ row.path }}</span>
         </template>
       </el-table-column>
-    </el-table>
-  </section>
+      <el-table-column label="操作" width="100">
+        <template #default="{ row }">
+          <el-button text type="primary" size="small" @click="handleDownload(row)">下载</el-button>
+        </template>
+      </el-table-column>
+    </template>
+  </LogTable>
 </template>
 
-<script>
-import config from "../../config.js";
-import { FileLogSystemApi } from "../../api/index.js";
-import logSystemMixins from "../../mixin/logSystem.js";
-import axios from "axios";
-import { mapGetters } from "vuex";
-import { setTimeout } from "timers";
+<script setup lang="ts">
+import { ref, onMounted, watch } from 'vue'
+import LogTable from '@/components/LogTable.vue'
+import { getFileLogs, downloadFile } from '@/api/apis'
+import { downloadBlob } from '@/utils'
+import type { FileLog } from '@/types'
 
-export default {
-  mixins: [logSystemMixins],
-  methods: {
-    tableRowClassName(row) {
-      if (row.id == this.highLight) {
-        return "_FILE_warn row";
-      }
-      return "_FILE_" + row.oper;
-    },
-    download(row) {
-      let downloadUrl = `${config.ajax_addr}/downloadfile?id=${row.id}&token=${sessionStorage.getItem("accessToken")}`;
-      let link = document.createElement("a");
-      link.display = "none";
-      link.href = downloadUrl;
-      let path = row.path.split("/");
-      link.setAttribute("download", path[path.length - 1]);
-      link.onload = () => {
-        document.body.removeChild(link);
-      };
-      document.body.appendChild(link);
-      link.click();
-    },
-    changePage(page) {
-      this.changePageGenerator(
-        FileLogSystemApi.getFileLog(page, 20),
-        "setFileLog",
-        "/fileLog"
-      )();
-    },
-    gotoLatest() {
-      this.gotoLatestGenerator(
-        FileLogSystemApi.getFileLog(0, 20),
-        "setFileLog"
-      )();
-    },
-    filterTag(value, row){
-      return row.oper_str == value;
-    },
-  },
-  computed: {
-    ...mapGetters({
-      tableData: "getFileLog"
-    })
-  },
-  data() {
-    return {
-      loading: false,
-      lastPage: 0,
-      page: 1,
-      latestFlag: false,
-      highLight: ''
-    };
-  },
-  mounted() {
-    this.$bus.on("goto-file-latest", () => {
-      if (this.latestFlag) {
-        this.gotoLatest();
-      }
-    });
+const logs = ref<FileLog[]>([])
+const total = ref(0)
+const loading = ref(false)
+const currentPage = ref(0)
+const pageSize = ref(20)
+const operationFilter = ref('')
+
+const operations = ['CREATE', 'MODIFY', 'CLOSE_WRITE', 'ATTRIB', 'DELETE']
+
+const getOperationType = (op: string) => {
+  const map: Record<string, string> = {
+    CREATE: 'success',
+    MODIFY: 'warning',
+    DELETE: 'danger',
+    ATTRIB: 'info',
+    CLOSE_WRITE: ''
   }
-};
+  return map[op] || ''
+}
+
+const fetchLogs = async (page: number) => {
+  loading.value = true
+  try {
+    const { data } = await getFileLogs(page, pageSize.value)
+    logs.value = data
+    total.value = data.length
+  } finally {
+    loading.value = false
+  }
+}
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  fetchLogs(page)
+}
+
+const handleDownload = async (row: FileLog) => {
+  const token = sessionStorage.getItem('token') || ''
+  const { data } = await downloadFile(row.id, token)
+  downloadBlob(data, row.path.split('/').pop() || 'file')
+}
+
+watch(operationFilter, () => {
+  fetchLogs(0)
+})
+
+onMounted(() => fetchLogs(0))
 </script>
 
-<style>
-._FILE_CREATE {
-  background: #979eff !important;
-}
-._FILE_MODIFY {
-  background: #ffe6b1 !important;
-}
-._FILE_CLOSE_WRITE {
-  background: #ffc1b9 !important;
-}
-._FILE_ATTRIB {
-  background: #219481 !important;
-}
-._FILE_DELETE {
-  background: #f083ff !important;
-}
-._FILE_warn {
-  background: red !important;
+<style scoped>
+.is-dir {
+  color: #67C23A;
 }
 </style>
