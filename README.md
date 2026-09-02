@@ -1,5 +1,12 @@
 # GoAWD — 轻量级 EDR for CTF AWD
 
+<p align="center">
+  <img src="https://img.shields.io/badge/version-2.0.0-blue.svg" alt="version">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0-green.svg" alt="license">
+  <img src="https://img.shields.io/badge/go-1.21+-00ADD8.svg" alt="go version">
+  <img src="https://img.shields.io/badge/vue-2.x-brightgreen.svg" alt="vue version">
+</p>
+
 GoAWD 是专为 CTF AWD（Attack With Defense）模式设计的轻量级 EDR（端点检测与响应）系统。
 
 ## 功能特性
@@ -12,7 +19,7 @@ GoAWD 是专为 CTF AWD（Attack With Defense）模式设计的轻量级 EDR（�
 - **进程行为监控**：扫描 /proc 检测新进程创建
 - **内置插件系统**：FlagBuster、KingWatcher、ZombieKiller
 - **WebSocket 实时推送**：数据变更即时通知前端
-- **可视化 Web 面板**：Vue.js 管理界面
+- **可视化 Web 面板**：现代化 Vue.js 管理界面
 
 ## 快速开始
 
@@ -40,6 +47,24 @@ docker compose up -d
 chmod +x docker_goawd_start.sh
 ./docker_goawd_start.sh
 ```
+
+## 界面预览
+
+### 登录页面
+
+采用现代化设计，渐变背景 + 毛玻璃效果，支持 Access Token 登录。
+
+### Dashboard
+
+实时显示系统状态、报警统计、插件列表等关键信息。
+
+### Web 日志
+
+支持按 HTTP 方法、IP 地址过滤，双击查看请求详情。
+
+### PWN 日志
+
+实时捕获 PWN 程序的 stdin/stdout 流量，支持 Hex Dump 视图。
 
 ## 命令行参数
 
@@ -123,24 +148,46 @@ func init() {
 ## 项目结构
 
 ```
-AoiAWD/
-├── GoAWD/              # Go 后端
-│   ├── cmd/            # 入口程序
-│   │   ├── server/     # 核心服务器
-│   │   ├── roundworm/  # 文件/进程探针
-│   │   ├── guardian/   # PWN 探针
-│   │   └── tapeworm/   # PHP Web 注入器
-│   ├── internal/       # 内部包
-│   ├── pkg/            # 公共包
-│   ├── plugins/        # 内置插件
-│   └── docs/           # 项目文档
-├── Frontend/           # Vue.js 前端
-├── Readme/             # 截图资源
-├── wiki/               # Wiki 文档
-├── Dockerfile          # Docker 构建文件
-├── docker-compose.yml  # Docker Compose 配置
-├── build.sh            # 打包脚本
-└── docker_goawd_start.sh  # Docker 启动脚本
+GoAWD/
+├── cmd/                # 入口程序
+│   ├── server/         # 核心服务器
+│   ├── roundworm/      # 文件/进程探针
+│   ├── guardian/       # PWN 探针
+│   └── tapeworm/       # PHP Web 注入器
+├── internal/           # 内部包
+│   ├── api/            # REST API
+│   ├── config/         # 配置管理
+│   ├── core/           # 核心逻辑
+│   ├── plugin/         # 插件管理器
+│   ├── storage/        # 存储后端
+│   ├── types/          # 数据结构
+│   └── ws/             # WebSocket
+├── pkg/                # 公共包
+│   ├── inotify/        # 文件系统监控
+│   ├── proc/           # 进程扫描
+│   └── tcpclient/      # TCP 客户端
+├── plugins/            # 内置插件
+└── docs/               # 项目文档
+
+Frontend/
+├── src/
+│   ├── views/          # 页面组件
+│   ├── api/            # API 接口
+│   ├── styles/         # 样式文件
+│   └── vuex/           # 状态管理
+└── static/             # 静态资源
+```
+
+## 测试
+
+```bash
+# 运行所有测试
+cd GoAWD
+go test ./...
+
+# 查看测试覆盖率
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
 ```
 
 ## 文档

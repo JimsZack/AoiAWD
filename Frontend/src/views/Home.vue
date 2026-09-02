@@ -2,7 +2,25 @@
 	<el-row class="container">
 		<el-col :span="24" class="header">
 			<el-col :span="10" class="logo" :class="collapsed?'logo-collapse-width':'logo-width'">
-				{{collapsed?'':sysName}}
+				<div class="logo-wrapper" v-if="!collapsed">
+					<svg viewBox="0 0 120 120" class="logo-svg">
+						<defs>
+							<linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+								<stop offset="0%" style="stop-color:#fff;stop-opacity:1" />
+								<stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+							</linearGradient>
+						</defs>
+						<circle cx="60" cy="60" r="40" fill="none" stroke="url(#headerGrad)" stroke-width="3" />
+						<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
+					</svg>
+					<span class="logo-text">{{sysName}}</span>
+				</div>
+				<div class="logo-wrapper collapsed-logo" v-else>
+					<svg viewBox="0 0 120 120" class="logo-svg">
+						<circle cx="60" cy="60" r="40" fill="none" stroke="white" stroke-width="3" />
+						<text x="60" y="72" font-size="32" fill="white" text-anchor="middle" font-weight="bold">G</text>
+					</svg>
+				</div>
 			</el-col>
 			<el-col :span="6">
 				<div class="tools" @click.prevent="collapse">
@@ -10,7 +28,12 @@
 				</div>
 			</el-col>
 			<el-col :span="8" class="userinfo">
-				<span>Powered By Aodzip in HatLab@DBAppsecurity Co., Ltd</span>
+				<div class="user-info-inner">
+					<span class="version-badge">v2.0</span>
+					<a href="https://github.com/JimsZack/AoiAWD" target="_blank" class="github-link">
+						<i class="fa fa-github"></i>
+					</a>
+				</div>
 			</el-col>
 		</el-col>
 		<el-col :span="24" class="main">
@@ -25,7 +48,6 @@
 						</el-submenu>
 						<el-menu-item v-if="item.leaf&&item.children.length>0" :index="item.children[0].path"><i :class="item.iconCls"></i>{{item.children[0].name}}</el-menu-item>
 					</template>
-				<el-menu-item><a href="https://github.com/JimsZack/AoiAWD" target="_blank"><i class="fa fa-github"></i>GoAWD@GitHub</a></el-menu-item>
 				</el-menu>
 				<!--导航菜单-折叠后-->
 				<ul class="el-menu el-menu-vertical-demo collapsed" v-show="collapsed" ref="menuCollapsed">
@@ -127,82 +149,119 @@
 </script>
 
 <style scoped lang="scss">
-	@import '~scss_vars';
-	
 	.container {
 		position: absolute;
 		top: 0px;
 		bottom: 0px;
 		width: 100%;
+		
 		.header {
 			height: 60px;
 			line-height: 60px;
-			background: $color-primary;
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
 			color:#fff;
+			
 			.userinfo {
 				text-align: right;
-				padding-right: 35px;
+				padding-right: 20px;
 				float: right;
-				.userinfo-inner {
-					cursor: pointer;
-					color:#fff;
-					img {
-						width: 40px;
-						height: 40px;
-						border-radius: 20px;
-						margin: 10px 0px 10px 10px;
-						float: right;
+				
+				.user-info-inner {
+					display: flex;
+					align-items: center;
+					justify-content: flex-end;
+					height: 100%;
+				}
+				
+				.version-badge {
+					background: rgba(255, 255, 255, 0.2);
+					padding: 4px 10px;
+					border-radius: 12px;
+					font-size: 12px;
+					margin-right: 16px;
+				}
+				
+				.github-link {
+					color: #fff;
+					font-size: 20px;
+					transition: all 0.3s;
+					
+					&:hover {
+						color: #667eea;
+						transform: scale(1.1);
 					}
 				}
 			}
+			
 			.logo {
-				//width:230px;
 				height:60px;
 				font-size: 22px;
 				padding-left:20px;
 				padding-right:20px;
-				border-color: rgba(238,241,146,0.3);
 				border-right-width: 1px;
 				border-right-style: solid;
-				img {
-					width: 40px;
-					float: left;
-					margin: 10px 10px 10px 18px;
+				border-color: rgba(255, 255, 255, 0.1);
+				
+				.logo-wrapper {
+					display: flex;
+					align-items: center;
+					height: 100%;
+					
+					.logo-svg {
+						width: 36px;
+						height: 36px;
+						margin-right: 10px;
+					}
+					
+					.logo-text {
+						font-weight: 600;
+						letter-spacing: 1px;
+					}
 				}
-				.txt {
-					color:#fff;
+				
+				.collapsed-logo {
+					justify-content: center;
 				}
 			}
+			
 			.logo-width{
-				width:230px;
+				width:200px;
 			}
 			.logo-collapse-width{
 				width:60px
 			}
+			
 			.tools{
 				padding: 0px 23px;
 				width:14px;
 				height: 60px;
 				line-height: 60px;
 				cursor: pointer;
+				transition: all 0.3s;
+				
+				&:hover {
+					color: #667eea;
+				}
 			}
 		}
+		
 		.main {
 			display: flex;
-			// background: #324057;
 			position: absolute;
 			top: 60px;
 			bottom: 0px;
 			overflow: hidden;
+			
 			aside {
 				flex:0 0 230px;
 				width: 230px;
-				// position: absolute;
-				// top: 0px;
-				// bottom: 0px;
+				background: #252a34;
+				
 				.el-menu{
 					height: 100%;
+					border-right: none;
 				}
+				
 				.collapsed{
 					width:60px;
 					.item{
@@ -218,26 +277,24 @@
 					}
 				}
 			}
+			
 			.menu-collapsed{
 				flex:0 0 60px;
 				width: 60px;
 			}
+			
 			.menu-expanded{
 				flex:0 0 230px;
 				width: 230px;
 			}
+			
 			.content-container {
-				// background: #f1f2f7;
 				flex:1;
-				// position: absolute;
-				// right: 0px;
-				// top: 0px;
-				// bottom: 0px;
-				// left: 230px;
 				overflow-y: scroll;
 				padding: 20px;
+				background: #f0f2f5;
+				
 				.breadcrumb-container {
-					//margin-bottom: 15px;
 					.title {
 						width: 200px;
 						float: left;
@@ -247,9 +304,13 @@
 						float: right;
 					}
 				}
+				
 				.content-wrapper {
 					background-color: #fff;
+					border-radius: 8px;
+					box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 					box-sizing: border-box;
+					padding: 20px;
 				}
 			}
 		}

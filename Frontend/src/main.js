@@ -8,6 +8,7 @@ import Vuex from 'vuex'
 import VueBus from 'vue-bus';
 import routes from './routes'
 import 'font-awesome/css/font-awesome.min.css'
+import './styles/global.scss'
 import Axios from 'axios';
 
 
