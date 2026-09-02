@@ -66,6 +66,34 @@ chmod +x docker_goawd_start.sh
 
 实时捕获 PWN 程序的 stdin/stdout 流量，支持 Hex Dump 视图。
 
+## 命令行工具
+
+### snowfind - CTF Flag 搜索工具
+
+snowfind 是一款专为 CTF 竞赛设计的自动化 flag 发现和解码工具，支持 20+ 种编码格式自动识别和解码。
+
+```bash
+# 构建 snowfind
+cd GoAWD/tools/snowfind
+go build -o snowfind .
+
+# 使用示例
+./snowfind /path/to/search              # 搜索目录
+./snowfind -p "flag" /path/to/search    # 指定关键词搜索
+./snowfind -m /path/to/search           # 仅匹配模式，不解码
+./snowfind --suspicious /path/to/search # 扫描可疑文件
+```
+
+| 参数 | 说明 |
+|------|------|
+| `-p, --pattern` | 指定匹配关键词 |
+| `-m, --match` | 仅匹配关键字，不解码 |
+| `-o, --output` | 输出结果到文件 |
+| `-w, --workers` | 并发工作协程数 (默认 4) |
+| `-i, --interactive` | 启用交互模式 |
+| `--time-filter` | 启用时间筛查 |
+| `--suspicious` | 扫描可疑文件 |
+
 ## 命令行参数
 
 ### goawd-server
@@ -167,6 +195,8 @@ GoAWD/
 │   ├── proc/           # 进程扫描
 │   └── tcpclient/      # TCP 客户端
 ├── plugins/            # 内置插件
+├── tools/              # 辅助工具
+│   └── snowfind/       # CTF Flag 搜索工具
 └── docs/               # 项目文档
 
 Frontend/

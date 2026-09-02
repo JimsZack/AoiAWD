@@ -1,0 +1,286 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  APP_NAME: snowfind
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            platform: linux-amd64
+          - goos: linux
+            goarch: arm64
+            platform: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            platform: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            platform: darwin-arm64
+          - goos: windows
+            goarch: amd64
+            platform: windows-amd64
+            ext: .exe
+          - goos: windows
+            goarch: 386
+            platform: windows-386
+            ext: .exe
+          - goos: freebsd
+            goarch: amd64
+            platform: freebsd-amd64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build binary
+      env:
+        CGO_ENABLED: 0
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: |
+        go mod tidy
+        go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ${{ env.APP_NAME }}-${{ matrix.platform }}${{ matrix.ext }} main.go
+
+    - name: Create package directory
+      run: |
+        mkdir -p package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}
+        cp ${{ env.APP_NAME }}-${{ matrix.platform }}${{ matrix.ext }} package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/
+
+    - name: Create complete config
+      run: |
+        cat > package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/config.json << 'EOF'
+        {
+            "patterns": [
+                "flag", "f1ag", "fl@g", "fl4g", "fl4g{", "ctfshow",
+                "NSSCTF", "DASCTF", "HTB", "THM", "picoCTF", "CTF", 
+                "DEFCON", "XCTF", "QWB", "CISCN", "FLAG", "flag{", 
+                "Zmxh", "666c6167", "&#102", "synt", "uozt", "MZXW6", "galf"
+            ],
+            "match": [
+                "666c6167", "flag{", "flag", "Zmxh", "&#102", "01100110011011000110000101100111",
+                "key", "pass","ctf{", "CTF{", "flag:", "FLAG:", "key:", "KEY:"
+            ],
+            "max_workers": 8,
+            "max_processes": 2,
+            "log_level": "INFO",
+            "buffer_size": 8192,
+            "exclude_files": ["snowfind", "snowfind.exe", "snowfind-result*.txt", "snowfind-output*.txt", "*.log", "*.tmp", "*.cache"],
+            "exclude_exts": [".pyc", ".so", ".dll", ".o", ".obj", ".class", ".jar", ".war", ".pdb", ".lib", ".a", ".dylib"],
+            "default_path": ".",
+            "interactive": false,
+            "enable_time_filter": false,
+            "time_filter_days": 7,
+            "suspicious_exts": [".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".exe", ".bat", ".sh", ".ps1", ".scr", ".com", ".pif", ".vbs", ".js", ".jar", ".war", ".deb", ".rpm", ".msi", ".dmg", ".pkg", ".apk", ".ipa"],
+            "enable_suspicious_scan": false,
+            "output_config": {
+                "save_results": true,
+                "result_file": "snowfind-result.txt",
+                "output_file": "snowfind-output.txt",
+                "append_timestamp": true,
+                "console_output": true,
+                "detailed_output": false
+            },
+            "search_config": {
+                "case_sensitive": false,
+                "whole_word": false,
+                "regex_enabled": false,
+                "binary_search": true,
+                "max_file_size": 104857600,
+                "skip_empty_files": true,
+                "follow_symlinks": false
+            },
+            "encoding_config": {
+                "auto_detect": true,
+                "default_encoding": "utf-8",
+                "supported_encodings": ["ascii", "base64", "hex", "url", "html", "unicode", "binary"]
+            }
+        }
+        EOF
+
+    - name: Create run scripts
+      run: |
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          cat > package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/run.bat << 'EOF'
+        @echo off
+        chcp 65001 >nul
+        echo 开始搜索当前目录下的flag...
+        echo.
+        snowfind-windows*.exe .
+        echo.
+        echo 搜索完成！
+        pause
+        EOF
+        else
+          cat > package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/run.sh << 'EOF'
+        #!/bin/bash
+        echo "开始搜索当前目录下的flag..."
+        echo
+        ./snowfind-* .
+        echo
+        echo "搜索完成！"
+        read -p "按回车键退出..."
+        EOF
+          chmod +x package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/run.sh
+        fi
+
+    - name: Create README
+      run: |
+        cat > package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/README.md << 'EOF'
+        # Snowfind - 多编码格式搜索工具
+
+        ## 使用方法
+
+        ### 快速开始
+        - Windows: 双击 `run.bat` 搜索当前目录
+        - Linux/Mac: 执行 `./run.sh` 搜索当前目录
+
+        ### 命令行使用
+        ```bash
+        # 搜索当前目录
+        ./snowfind .
+
+        # 搜索指定目录
+        ./snowfind /path/to/directory
+
+        # 查看帮助
+        ./snowfind --help
+
+        # 查看支持的编码器
+        ./snowfind --show-encoders
+        ```
+
+        ### 配置文件
+        - `config.json`: 主配置文件，包含搜索模式、排除规则等设置
+        - 可根据需要修改配置文件中的搜索模式和参数
+
+        ## 支持的编码格式
+        - ASCII
+        - Base64
+        - Hex
+        - Binary
+        - Unicode
+        - URL编码
+        - HTML实体编码
+
+        ## 输出文件
+        - `snowfind-result.txt`: 搜索结果
+        - `snowfind-output.txt`: 详细输出日志
+        EOF
+
+    - name: Create archive
+      run: |
+        cd package
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          zip -r ${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}.zip ${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/
+        else
+          tar -czf ${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}.tar.gz ${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}/
+        fi
+        cd ..
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}
+        path: package/${{ env.APP_NAME }}-${{ matrix.platform }}-${{ steps.get_version.outputs.VERSION }}.*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        find artifacts -name "*.zip" -o -name "*.tar.gz" | xargs -I {} cp {} release-assets/
+        ls -la release-assets/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## Snowfind ${{ steps.get_version.outputs.VERSION }}
+          
+          多编码格式搜索工具，支持多种编码格式的文本搜索。
+          
+          ### 解压说明
+          - Linux/Mac/FreeBSD: 使用 `tar -xzf filename.tar.gz` 解压
+          - Windows: 使用 WinRAR、7-Zip 或右键解压 .zip 文件
+          
+          ### 下载说明
+          - `linux-amd64`: Linux x64 版本
+          - `linux-arm64`: Linux ARM64 版本  
+          - `darwin-amd64`: macOS Intel 版本
+          - `darwin-arm64`: macOS Apple Silicon 版本
+          - `windows-amd64`: Windows x64 版本
+          - `windows-386`: Windows x86 版本
+          - `freebsd-amd64`: FreeBSD x64 版本
+          
+          ### 使用方法
+          1. 下载对应平台的压缩包
+          2. 解压后运行 `run.sh` (Linux/Mac) 或 `run.bat` (Windows)
+          3. 或直接使用命令行: `./snowfind [目录路径]`
+          
+          每个压缩包都包含：
+          - 可执行文件
+          - 配置文件 (config.json)
+          - 快速运行脚本
+          - 使用说明 (README.md)
+        files: release-assets/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.TOKEN || secrets.GITHUB_TOKEN }}
