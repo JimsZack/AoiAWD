@@ -26,7 +26,7 @@ func (f *FlagBuster) Register(m *plugin.Manager) {
 
 var (
 	flagRegex1 = regexp.MustCompile(`flag\{[^}]+\}`)
-	flagRegex2 = regexp.MustCompile(`\{"flag":"[^"]*"\}`)
+	flagRegex2 = regexp.MustCompile(`"flag"\s*:\s*"[^"]*"`)
 )
 
 func fakeFlag() string {
@@ -46,7 +46,7 @@ func (f *FlagBuster) processWebBuffer(caller interface{}, data interface{}) inte
 		return fakeFlag()
 	})
 	modified = flagRegex2.ReplaceAllStringFunc(modified, func(_ string) string {
-		return `{"flag":"` + fakeFlag() + `"}`
+		return `"flag":"` + fakeFlag() + `"`
 	})
 
 	if modified != original {
